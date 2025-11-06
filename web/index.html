@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Hexagonal Chess</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        canvas {
+            border: 1px solid #333;
+            background: #2a2a2a;
+        }
+        
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+        }
+        
+        #menu {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 100;
+        }
+        
+        .variant-button {
+            display: block;
+            width: 200px;
+            padding: 10px;
+            margin: 5px 0;
+            background: #444;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .variant-button:hover {
+            background: #555;
+        }
+        
+        .variant-button.selected {
+            background: #007acc;
+        }
+        
+        #game-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 100;
+        }
+        
+        #move-history {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        
+        .move-entry {
+            padding: 2px 0;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="loading">Loading Hexagonal Chess...</div>
+        <canvas id="game-canvas"></canvas>
+        
+        <div id="menu" style="display: none;">
+            <h3>Select Variant</h3>
+            <button class="variant-button selected" data-variant="glinski">Gliński's Chess</button>
+            <button class="variant-button" data-variant="mccooey">McCooey's Chess</button>
+            <button class="variant-button" data-variant="mini">Mini Hexchess</button>
+            <button class="variant-button" data-variant="glinski-capablanca">Gliński-Capablanca</button>
+            <button class="variant-button" data-variant="mccooey-capablanca">McCooey-Capablanca</button>
+            <button class="variant-button" data-variant="shafran">Shafran's Chess</button>
+            <button class="variant-button" data-variant="brusky">Brusky's Chess</button>
+            <button class="variant-button" data-variant="de-vasa">De Vasa's Chess</button>
+            <br><br>
+            <button id="start-game" style="width: 100%; padding: 15px; background: #007acc; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer;">Start Game</button>
+            <button id="multiplayer" style="width: 100%; padding: 15px; background: #28a745; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin-top: 10px;">Multiplayer</button>
+        </div>
+        
+        <div id="game-info" style="display: none;">
+            <h3>Game Info</h3>
+            <div id="current-player">White to move</div>
+            <div id="game-status">Playing</div>
+            <h4>Move History</h4>
+            <div id="move-history"></div>
+            <button id="undo-move" style="width: 100%; padding: 10px; background: #dc3545; color: white; border: none; border-radius: 5px; margin-top: 10px;">Undo Move</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import init from './pkg/hex_chess_game.js';
+        
+        let wasmModule;
+        let selectedVariant = 'glinski';
+        
+        async function run() {
+            try {
+                wasmModule = await init();
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('menu').style.display = 'block';
+                
+                setupEventListeners();
+            } catch (error) {
+                console.error('Failed to load WASM module:', error);
+                document.getElementById('loading').textContent = 'Failed to load game';
+            }
+        }
+        
+        function setupEventListeners() {
+            // Variant selection
+            document.querySelectorAll('.variant-button').forEach(button => {
+                button.addEventListener('click', () => {
+                    document.querySelectorAll('.variant-button').forEach(b => b.classList.remove('selected'));
+                    button.classList.add('selected');
+                    selectedVariant = button.dataset.variant;
+                });
+            });
+            
+            // Start game
+            document.getElementById('start-game').addEventListener('click', () => {
+                startGame(selectedVariant, false);
+            });
+            
+            // Multiplayer
+            document.getElementById('multiplayer').addEventListener('click', () => {
+                startGame(selectedVariant, true);
+            });
+            
+            // Undo move
+            document.getElementById('undo-move').addEventListener('click', () => {
+                if (wasmModule) {
+                    wasmModule.undo_move();
+                }
+            });
+        }
+        
+        function startGame(variant, multiplayer) {
+            document.getElementById('menu').style.display = 'none';
+            document.getElementById('game-info').style.display = 'block';
+            
+            if (wasmModule) {
+                wasmModule.start_game(variant, multiplayer);
+            }
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (event) => {
+            if (wasmModule) {
+                switch(event.key) {
+                    case 'u':
+                        wasmModule.undo_move();
+                        break;
+                    case 'n':
+                        document.getElementById('menu').style.display = 'block';
+                        document.getElementById('game-info').style.display = 'none';
+                        break;
+                }
+            }
+        });
+        
+        run();
+    </script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+[package]
+name = "hex-chess-game"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+bevy = { workspace = true, features = ["default"], default-features = false }
+hex-chess-core = { path = "../core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+wasm-bindgen = { workspace = true }
+web-sys = { workspace = true, features = [
+  "console",
+  "Document",
+  "Element",
+  "HtmlElement",
+  "Window",
+]}
+matchbox_socket = { workspace = true }

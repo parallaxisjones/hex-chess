@@ -1,0 +1,21 @@
+[build]
+target = "index.html"
+dist = "dist"
+public_url = "/"
+
+[serve]
+address = "127.0.0.1"
+port = 8080
+open = true
+
+[watch]
+watch = ["src", "assets", "index.html"]
+ignore = ["dist", "target"]
+
+[clean]
+dist = "dist"
+cargo = false
+
+[build.wasm]
+opt = "z"
+bindgen = true

@@ -1,0 +1,179 @@
+/* Additional styles for the hexagonal chess game */
+
+.hex-tile {
+    fill: #f0f0f0;
+    stroke: #333;
+    stroke-width: 1;
+}
+
+.hex-tile.light {
+    fill: #f8f8f8;
+}
+
+.hex-tile.medium {
+    fill: #e0e0e0;
+}
+
+.hex-tile.dark {
+    fill: #c8c8c8;
+}
+
+.hex-tile.selected {
+    fill: #007acc;
+    stroke: #005a9e;
+    stroke-width: 2;
+}
+
+.hex-tile.valid-move {
+    fill: #28a745;
+    stroke: #1e7e34;
+    stroke-width: 2;
+}
+
+.hex-tile.last-move {
+    fill: #ffc107;
+    stroke: #e0a800;
+    stroke-width: 2;
+}
+
+.piece {
+    font-family: 'Chess Cases', 'Arial Unicode MS', sans-serif;
+    font-size: 24px;
+    text-anchor: middle;
+    dominant-baseline: central;
+    cursor: pointer;
+}
+
+.piece.white {
+    fill: white;
+    stroke: #333;
+    stroke-width: 0.5;
+}
+
+.piece.black {
+    fill: #333;
+    stroke: white;
+    stroke-width: 0.5;
+}
+
+.piece.selected {
+    stroke: #007acc;
+    stroke-width: 2;
+}
+
+.game-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.game-overlay-content {
+    background: #2a2a2a;
+    padding: 40px;
+    border-radius: 10px;
+    text-align: center;
+    border: 2px solid #007acc;
+}
+
+.game-overlay h2 {
+    margin-top: 0;
+    color: #007acc;
+}
+
+.game-overlay button {
+    padding: 15px 30px;
+    margin: 10px;
+    background: #007acc;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.game-overlay button:hover {
+    background: #005a9e;
+}
+
+.connection-status {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: 5px;
+    font-size: 12px;
+}
+
+.connection-status.connected {
+    background: rgba(40, 167, 69, 0.8);
+}
+
+.connection-status.connecting {
+    background: rgba(255, 193, 7, 0.8);
+}
+
+.connection-status.disconnected {
+    background: rgba(220, 53, 69, 0.8);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    #menu, #game-info {
+        position: relative;
+        top: auto;
+        left: auto;
+        right: auto;
+        margin: 10px;
+    }
+    
+    .variant-button {
+        width: 100%;
+    }
+    
+    #game-container {
+        flex-direction: column;
+    }
+}
+
+/* Animation for piece moves */
+@keyframes piece-move {
+    from {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.2);
+    }
+    to {
+        transform: scale(1);
+    }
+}
+
+.piece.moving {
+    animation: piece-move 0.3s ease-in-out;
+}
+
+/* Loading animation */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+#loading::after {
+    content: '';
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #333;
+    border-top: 2px solid #007acc;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-left: 10px;
+}
