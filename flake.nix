@@ -10,7 +10,18 @@
   outputs = { self, nixpkgs, flake-utils, rust-overlay, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = import nixpkgs { inherit system; overlays = [ rust-overlay.overlays.default ]; };
+        pkgs = import nixpkgs { 
+          inherit system; 
+          overlays = [ 
+            rust-overlay.overlays.default
+            (final: prev: {
+              # Override nodejs to skip tests (some tests timeout on macOS)
+              nodejs = prev.nodejs.overrideAttrs (oldAttrs: {
+                doCheck = false;
+              });
+            })
+          ]; 
+        };
         rustToolchain = pkgs.rust-bin.stable.latest.default.override {
           targets = [ "wasm32-unknown-unknown" ];
         };
