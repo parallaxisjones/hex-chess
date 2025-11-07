@@ -20,3 +20,5 @@ web-sys = { workspace = true, features = [
   "Window",
 ]}
 matchbox_socket = { workspace = true }
+getrandom = { workspace = true }
+uuid = { workspace = true }

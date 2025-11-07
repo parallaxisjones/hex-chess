@@ -2498,9 +2498,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "899def5c37c4fd7b2664648c28120ecec138e4d395b459e5ca34f9cce2dd77fd"
 dependencies = [
  "cfg-if",
+ "js-sys",
  "libc",
  "r-efi",
  "wasip2",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -2813,10 +2815,12 @@ name = "hex-chess-game"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "getrandom 0.3.4",
  "hex-chess-core",
  "matchbox_socket",
  "serde",
  "serde_json",
+ "uuid",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -5619,7 +5623,17 @@ dependencies = [
  "getrandom 0.3.4",
  "js-sys",
  "serde",
+ "uuid-rng-internal",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "uuid-rng-internal"
+version = "1.18.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23426b4394875bbc29a3074f94e1b52cd0eed2c8410c21a6edbfb033daef0aa1"
+dependencies = [
+ "getrandom 0.3.4",
 ]
 
 [[package]]

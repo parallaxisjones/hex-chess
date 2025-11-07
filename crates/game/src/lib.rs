@@ -1,12 +1,13 @@
 use bevy::prelude::*;
-use hex_chess_core::*;
+use hex_chess_core::{HexCoord, Piece, Variants, Color as ChessColor};
 use wasm_bindgen::prelude::*;
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.
-#[cfg(feature = "wee_alloc")]
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+// Note: wee_alloc feature is not currently enabled in Cargo.toml
+// #[cfg(feature = "wee_alloc")]
+// #[global_allocator]
+// static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 // This is like the `main` function, except for JavaScript.
 #[wasm_bindgen(start)]
@@ -35,7 +36,7 @@ pub struct HexChessPlugin;
 impl Plugin for HexChessPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_state::<GameState>()
+            .init_state::<GameState>()
             .add_systems(Startup, setup)
             .add_systems(Update, (
                 handle_input,
@@ -115,9 +116,9 @@ fn spawn_board(
     materials: &mut ResMut<Assets<StandardMaterial>>,
 ) {
     // Create hex tile materials
-    let light_material = materials.add(Color::srgb(0.9, 0.9, 0.8));
-    let medium_material = materials.add(Color::srgb(0.7, 0.7, 0.6));
-    let dark_material = materials.add(Color::srgb(0.5, 0.5, 0.4));
+    let light_material = materials.add(bevy::prelude::Color::srgb(0.9, 0.9, 0.8));
+    let medium_material = materials.add(bevy::prelude::Color::srgb(0.7, 0.7, 0.6));
+    let dark_material = materials.add(bevy::prelude::Color::srgb(0.5, 0.5, 0.4));
     
     // Create hex mesh
     let hex_mesh = meshes.add(create_hex_mesh());
@@ -175,7 +176,7 @@ fn create_hex_mesh() -> Mesh {
     .with_inserted_indices(bevy::render::mesh::Indices::U32(indices))
 }
 
-fn spawn_ui(commands: &mut Commands, asset_server: &Res<AssetServer>) {
+fn spawn_ui(commands: &mut Commands, _asset_server: &Res<AssetServer>) {
     commands.spawn((
         NodeBundle {
             style: Style {
@@ -184,7 +185,7 @@ fn spawn_ui(commands: &mut Commands, asset_server: &Res<AssetServer>) {
                 left: Val::Px(10.0),
                 ..default()
             },
-            background_color: Color::rgba(0.0, 0.0, 0.0, 0.7).into(),
+            background_color: bevy::prelude::Color::srgba(0.0, 0.0, 0.0, 0.7).into(),
             ..default()
         },
         GameUI,
@@ -193,7 +194,7 @@ fn spawn_ui(commands: &mut Commands, asset_server: &Res<AssetServer>) {
             "Hexagonal Chess",
             TextStyle {
                 font_size: 24.0,
-                color: Color::WHITE,
+                color: bevy::prelude::Color::WHITE,
                 ..default()
             },
         ));
@@ -202,7 +203,7 @@ fn spawn_ui(commands: &mut Commands, asset_server: &Res<AssetServer>) {
 
 fn handle_input(
     mut game_data: ResMut<GameData>,
-    mut mouse_button_events: EventReader<MouseButtonInput>,
+    mouse_buttons: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window>,
     camera_query: Query<(&Camera, &GlobalTransform)>,
     hex_tiles: Query<&HexTile>,
@@ -210,19 +211,17 @@ fn handle_input(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    for event in mouse_button_events.iter() {
-        if event.button == MouseButton::Left && event.state.is_pressed() {
-            if let Some(clicked_coord) = get_clicked_hex(&windows, &camera_query, &hex_tiles) {
-                handle_hex_click(&mut game_data, clicked_coord, &mut commands, &mut meshes, &mut materials);
-            }
+    if mouse_buttons.just_pressed(MouseButton::Left) {
+        if let Some(clicked_coord) = get_clicked_hex(&windows, &camera_query, &hex_tiles) {
+            handle_hex_click(&mut game_data, clicked_coord, &mut commands, &mut meshes, &mut materials);
         }
     }
 }
 
 fn get_clicked_hex(
-    windows: &Query<&Window>,
-    camera_query: &Query<(&Camera, &GlobalTransform)>,
-    hex_tiles: &Query<&HexTile>,
+    _windows: &Query<&Window>,
+    _camera_query: &Query<(&Camera, &GlobalTransform)>,
+    _hex_tiles: &Query<&HexTile>,
 ) -> Option<HexCoord> {
     // TODO: Implement proper mouse-to-hex coordinate conversion
     // For now, return None
@@ -232,9 +231,9 @@ fn get_clicked_hex(
 fn handle_hex_click(
     game_data: &mut ResMut<GameData>,
     coord: HexCoord,
-    commands: &mut Commands,
-    meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<StandardMaterial>>,
+    _commands: &mut Commands,
+    _meshes: &mut ResMut<Assets<Mesh>>,
+    _materials: &mut ResMut<Assets<StandardMaterial>>,
 ) {
     if let Some(selected) = game_data.selected_piece {
         // Try to move the selected piece
@@ -258,7 +257,7 @@ fn handle_hex_click(
 }
 
 fn update_board_visuals(
-    game_data: Res<GameData>,
+    _game_data: Res<GameData>,
     mut piece_query: Query<(&mut Transform, &ChessPiece)>,
 ) {
     // Update piece positions based on game state
@@ -274,8 +273,8 @@ fn update_ui(
 ) {
     if let Ok(mut text) = ui_query.get_single_mut() {
         let current_player = match game_data.game.current_player {
-            Color::White => "White",
-            Color::Black => "Black",
+            ChessColor::White => "White",
+            ChessColor::Black => "Black",
         };
         text.sections[0].value = format!("Hexagonal Chess - {} to move", current_player);
     }
@@ -283,7 +282,7 @@ fn update_ui(
 
 fn handle_menu_input(
     mut game_state: ResMut<NextState<GameState>>,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         game_state.set(GameState::Playing);

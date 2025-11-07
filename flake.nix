@@ -68,6 +68,7 @@
             pkgs.wasm-bindgen-cli
             pkgs.trunk
             pkgs.clang
+            pkgs.lld
             pkgs.pkg-config
             pkgs.openssl.dev
             pkgs.nodejs
