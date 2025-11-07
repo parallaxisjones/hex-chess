@@ -1,1 +1,33 @@
+# Rust build outputs
 target/
+
+# Trunk build outputs (WASM distribution)
+crates/game/dist/
+dist/
+
+# WASM build artifacts
+*.wasm
+wasm-bindgen/
+wasm-opt/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Emacs/Flycheck
+flycheck*/
+
+# Nix build results
+result
+result-*
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.local

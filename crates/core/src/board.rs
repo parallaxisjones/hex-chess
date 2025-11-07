@@ -49,8 +49,9 @@ impl Board {
             let color = match board_type {
                 BoardType::Regular { .. } | BoardType::Small => {
                     // Regular hex boards use 3 colors in a pattern
-                    let (q, r, s) = coord.to_cube();
-                    match (q + r + s) % 3 {
+                    // Note: In cube coordinates, q + r + s = 0, so we use (q + r) % 3 instead
+                    let (q, r, _s) = coord.to_cube();
+                    match (q + r).rem_euclid(3) {
                         0 => CellColor::Light,
                         1 => CellColor::Medium,
                         _ => CellColor::Dark,

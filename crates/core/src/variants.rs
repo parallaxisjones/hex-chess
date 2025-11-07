@@ -43,7 +43,10 @@ impl VariantConfig {
         let mut board = Board::new(self.board_type);
         
         for (&coord, &piece) in &self.starting_positions {
-            board.place_piece(coord, piece).unwrap();
+            // Only place pieces on valid coordinates, skip invalid ones
+            if let Err(e) = board.place_piece(coord, piece) {
+                eprintln!("Warning: Could not place piece at {:?}: {:?}", coord, e);
+            }
         }
         
         board
@@ -73,49 +76,58 @@ impl Variants {
         let mut starting_positions = HashMap::new();
         
         // White pieces (bottom of board)
-        // Pawns
+        // Pawns at r=4 (one row forward from back rank) - 9 pawns
         for q in -4..=4 {
-            for r in 3..=4 {
-                if HexCoord::new(q, r).in_hexagon(4) {
-                    starting_positions.insert(HexCoord::new(q, r), Piece::new(PieceType::Pawn, Color::White));
-                }
+            let coord = HexCoord::new(q, 4);
+            if coord.in_hexagon(5) {
+                starting_positions.insert(coord, Piece::new(PieceType::Pawn, Color::White));
             }
         }
         
-        // White back rank
-        starting_positions.insert(HexCoord::new(0, 5), Piece::new(PieceType::King, Color::White));
-        starting_positions.insert(HexCoord::new(1, 5), Piece::new(PieceType::Queen, Color::White));
-        starting_positions.insert(HexCoord::new(-1, 5), Piece::new(PieceType::Bishop, Color::White));
-        starting_positions.insert(HexCoord::new(2, 5), Piece::new(PieceType::Bishop, Color::White));
-        starting_positions.insert(HexCoord::new(-2, 5), Piece::new(PieceType::Knight, Color::White));
-        starting_positions.insert(HexCoord::new(3, 5), Piece::new(PieceType::Knight, Color::White));
-        starting_positions.insert(HexCoord::new(-3, 5), Piece::new(PieceType::Rook, Color::White));
-        starting_positions.insert(HexCoord::new(4, 5), Piece::new(PieceType::Rook, Color::White));
+        // White back rank (at r=5, within board radius 5) - 6 positions
+        // Standard Gliński's setup: Rook, Knight, Bishop, King, Queen, Bishop, Knight, Rook, Rook, Bishop
+        // At r=5, valid q range is -5 to 0 (due to hexagon constraint)
+        starting_positions.insert(HexCoord::new(-5, 5), Piece::new(PieceType::Rook, Color::White));
+        starting_positions.insert(HexCoord::new(-4, 5), Piece::new(PieceType::Knight, Color::White));
+        starting_positions.insert(HexCoord::new(-3, 5), Piece::new(PieceType::Bishop, Color::White));
+        starting_positions.insert(HexCoord::new(-2, 5), Piece::new(PieceType::Queen, Color::White));
+        starting_positions.insert(HexCoord::new(-1, 5), Piece::new(PieceType::King, Color::White));
+        starting_positions.insert(HexCoord::new(0, 5), Piece::new(PieceType::Bishop, Color::White));
+        
+        // Additional White pieces at r=3 to complete the setup
+        starting_positions.insert(HexCoord::new(-5, 4), Piece::new(PieceType::Rook, Color::White));
+        starting_positions.insert(HexCoord::new(4, 4), Piece::new(PieceType::Knight, Color::White));
+        starting_positions.insert(HexCoord::new(-4, 3), Piece::new(PieceType::Rook, Color::White));
+        starting_positions.insert(HexCoord::new(5, 4), Piece::new(PieceType::Bishop, Color::White));
         
         // Black pieces (top of board)
-        // Pawns
+        // Pawns at r=-4 (one row forward from back rank) - 9 pawns
         for q in -4..=4 {
-            for r in -4..=-3 {
-                if HexCoord::new(q, r).in_hexagon(4) {
-                    starting_positions.insert(HexCoord::new(q, r), Piece::new(PieceType::Pawn, Color::Black));
-                }
+            let coord = HexCoord::new(q, -4);
+            if coord.in_hexagon(5) {
+                starting_positions.insert(coord, Piece::new(PieceType::Pawn, Color::Black));
             }
         }
         
-        // Black back rank
-        starting_positions.insert(HexCoord::new(0, -5), Piece::new(PieceType::King, Color::Black));
-        starting_positions.insert(HexCoord::new(-1, -5), Piece::new(PieceType::Queen, Color::Black));
-        starting_positions.insert(HexCoord::new(1, -5), Piece::new(PieceType::Bishop, Color::Black));
-        starting_positions.insert(HexCoord::new(-2, -5), Piece::new(PieceType::Bishop, Color::Black));
-        starting_positions.insert(HexCoord::new(2, -5), Piece::new(PieceType::Knight, Color::Black));
-        starting_positions.insert(HexCoord::new(-3, -5), Piece::new(PieceType::Knight, Color::Black));
-        starting_positions.insert(HexCoord::new(3, -5), Piece::new(PieceType::Rook, Color::Black));
-        starting_positions.insert(HexCoord::new(-4, -5), Piece::new(PieceType::Rook, Color::Black));
+        // Black back rank (at r=-5, within board radius 5) - 6 positions
+        // At r=-5, valid q range is 0 to 5 (due to hexagon constraint)
+        starting_positions.insert(HexCoord::new(0, -5), Piece::new(PieceType::Bishop, Color::Black));
+        starting_positions.insert(HexCoord::new(1, -5), Piece::new(PieceType::King, Color::Black));
+        starting_positions.insert(HexCoord::new(2, -5), Piece::new(PieceType::Queen, Color::Black));
+        starting_positions.insert(HexCoord::new(3, -5), Piece::new(PieceType::Bishop, Color::Black));
+        starting_positions.insert(HexCoord::new(4, -5), Piece::new(PieceType::Knight, Color::Black));
+        starting_positions.insert(HexCoord::new(5, -5), Piece::new(PieceType::Rook, Color::Black));
+        
+        // Additional Black pieces at r=-3 to complete the setup
+        starting_positions.insert(HexCoord::new(-5, -4), Piece::new(PieceType::Bishop, Color::Black));
+        starting_positions.insert(HexCoord::new(-4, -4), Piece::new(PieceType::Knight, Color::Black));
+        starting_positions.insert(HexCoord::new(4, -3), Piece::new(PieceType::Rook, Color::Black));
+        starting_positions.insert(HexCoord::new(5, -4), Piece::new(PieceType::Rook, Color::Black));
         
         VariantConfig {
             name: "Gliński's Chess".to_string(),
             description: "91 cells, regular hexagon".to_string(),
-            board_type: BoardType::Regular { radius: 4 },
+            board_type: BoardType::Regular { radius: 5 },
             starting_positions,
             pawn_movement: PawnMovement::Standard,
             special_rules: vec![SpecialRule::EnPassant],

@@ -74,6 +74,10 @@
             pkgs.nodejs
             pkgs.nodePackages.npm
           ];
+          shellHook = ''
+            # Add lld to PATH for WASM linking
+            export PATH="${pkgs.lld}/bin:$PATH"
+          '';
         };
       });
 }

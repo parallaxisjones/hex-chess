@@ -70,21 +70,15 @@ impl PieceType {
         }
     }
 
-    /// King moves: one step in any direction
+    /// King moves: one step in any of the 6 directions (like a rook, but only one step)
+    /// In Gliński's Chess, the king moves to the 6 adjacent hexes, not diagonals
     fn king_moves(&self, from: HexCoord, board: &Board) -> Vec<HexCoord> {
         let mut moves = Vec::new();
         
-        // All 6 adjacent hexes
+        // All 6 adjacent hexes (rook-like movement, but only one step)
         for neighbor in from.neighbors() {
             if board.is_valid_coord(neighbor) {
                 moves.push(neighbor);
-            }
-        }
-        
-        // All 6 diagonal neighbors
-        for diagonal in from.diagonal_neighbors() {
-            if board.is_valid_coord(diagonal) {
-                moves.push(diagonal);
             }
         }
         
@@ -185,33 +179,35 @@ impl PieceType {
         moves
     }
 
-    /// Pawn moves: varies by variant, basic implementation
+    /// Pawn moves: Gliński's Chess rules
+    /// Pawns move forward to the adjacent cell directly ahead (1 direction)
+    /// Pawns capture diagonally forward to the sides (2 directions)
     fn pawn_moves(&self, from: HexCoord, board: &Board) -> Vec<HexCoord> {
         let mut moves = Vec::new();
         
-        // Basic pawn movement (will be customized per variant)
-        // For now, assume white moves "up" (negative r direction) and black moves "down" (positive r direction)
         let piece = board.get_piece(from).unwrap();
-        let direction = match piece.color {
-            Color::White => HexCoord::new(0, -1),
-            Color::Black => HexCoord::new(0, 1),
+        
+        // In Gliński's Chess, pawns move straight forward (1 direction)
+        let forward_direction = match piece.color {
+            Color::White => HexCoord::new(0, -1),   // Straight forward (northwest)
+            Color::Black => HexCoord::new(0, 1),    // Straight forward (southeast)
         };
         
-        // Forward move
-        let forward = from + direction;
-        if board.is_valid_coord(forward) && !board.is_occupied(forward) {
-            moves.push(forward);
+        // Pawns can move forward to an empty square
+        let forward_target = from + forward_direction;
+        if board.is_valid_coord(forward_target) && !board.is_occupied(forward_target) {
+            moves.push(forward_target);
         }
         
-        // Diagonal captures
+        // Pawns capture diagonally forward (2 directions)
         let capture_directions = match piece.color {
             Color::White => [
-                HexCoord::new(-1, -1),  // Southwest capture
-                HexCoord::new(1, -1),   // Southeast capture
+                HexCoord::new(-1, -1), // Forward-left diagonal (west)
+                HexCoord::new(1, -1),  // Forward-right diagonal (northeast)
             ],
             Color::Black => [
-                HexCoord::new(-1, 1),   // Northwest capture
-                HexCoord::new(1, 1),    // Northeast capture
+                HexCoord::new(-1, 1), // Forward-left diagonal (southwest)
+                HexCoord::new(1, 1),  // Forward-right diagonal (east)
             ],
         };
         
@@ -219,6 +215,7 @@ impl PieceType {
             let capture_target = from + capture_dir;
             if board.is_valid_coord(capture_target) {
                 if let Some(target_piece) = board.get_piece(capture_target) {
+                    // Can capture enemy pieces diagonally forward
                     if target_piece.color != piece.color {
                         moves.push(capture_target);
                     }

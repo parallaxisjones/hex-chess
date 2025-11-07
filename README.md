@@ -42,13 +42,21 @@ hex-chess/
    cargo run
    ```
 
-4. **Serve the web app**:
+4. **Serve the web app** (from the game crate directory):
    ```bash
-   cd web
+   cd crates/game/dist
    python -m http.server 8080
+   ```
+   
+   Or use trunk's built-in server:
+   ```bash
+   cd crates/game
+   trunk serve
    ```
 
 5. **Open your browser** to `http://localhost:8080`
+   
+   **Note**: The signaling server runs on port `3001` by default. For multiplayer, ensure the signaling server is running before starting a game.
 
 ### Production Deployment
 
