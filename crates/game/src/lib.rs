@@ -285,14 +285,10 @@ fn spawn_board(
     _asset_server: &Res<AssetServer>,
 ) {
     // Create hex tile colors - simple, high-contrast colors for 2D
-    // Light squares: beige (#F5F5DC)
-    let light_color = bevy::prelude::Color::srgb(0.96, 0.96, 0.86);
-    
-    // Medium squares: brown (#8B7355)
-    let medium_color = bevy::prelude::Color::srgb(0.55, 0.45, 0.33);
-    
-    // Dark squares: dark brown (#654321)
-    let dark_color = bevy::prelude::Color::srgb(0.40, 0.26, 0.13);
+    // Use high-contrast earth tones to make bishop diagonals obvious.
+    let light_color = bevy::prelude::Color::srgb(0.95, 0.93, 0.84);     // warm cream
+    let medium_color = bevy::prelude::Color::srgb(0.74, 0.60, 0.39);    // amber
+    let dark_color = bevy::prelude::Color::srgb(0.38, 0.30, 0.21);      // deep brown
     
     // Debug: log cell colors availability
     let cell_colors_count = game_data.game.board.cell_colors.len();
@@ -1532,10 +1528,14 @@ fn spawn_coordinate_labels(
             let label_x = px * BOARD_SCALE * LABEL_DISTANCE;
             let label_y = py * BOARD_SCALE * LABEL_DISTANCE;
             
+            // Use Gliński file/rank notation if available, otherwise fall back to axial
+            let label_text = coord.to_file_rank()
+                .unwrap_or_else(|| format!("({}, {})", coord.q, coord.r));
+            
             commands.spawn((
                 Text2dBundle {
                     text: Text::from_section(
-                        format!("({}, {})", coord.q, coord.r),
+                        label_text,
                         TextStyle {
                             font_size: 11.0,
                             color: Color::srgba(0.7, 0.7, 0.7, 0.6),

@@ -102,14 +102,20 @@ impl HexCoord {
     pub fn from_file_rank(file: char, rank: u8) -> Option<Self> {
         file_rank_to_axial(file, rank)
     }
+    
+    /// Convert axial coordinates to Gliński file/rank notation
+    /// Returns None if the coordinate doesn't correspond to a valid Gliński cell
+    pub fn to_file_rank(self) -> Option<String> {
+        axial_to_file_rank(self.q, self.r)
+    }
 }
 
 /// Convert Gliński file/rank notation to axial (q, r) coordinates
-/// Based on authoritative mapping for radius-5 flat-top hexagonal board
+/// Based on the 91-cell (radius-5) flat-top hexagonal board used for Gliński's Chess
 /// Files: a b c d e f g h i k l (no j), where f is the vertical spine at q=0
 /// Ranks: 1-11, with White at bottom (ranks 1-6) and Black at top (ranks 7-11)
 pub fn file_rank_to_axial(file: char, rank: u8) -> Option<HexCoord> {
-    // Map file character to q offset
+    let file = file.to_ascii_lowercase();
     let q = match file {
         'a' => -5,
         'b' => -4,
@@ -122,39 +128,62 @@ pub fn file_rank_to_axial(file: char, rank: u8) -> Option<HexCoord> {
         'i' => 3,
         'k' => 4,
         'l' => 5,
-        _ => return None,  // Invalid file (including 'j')
+        _ => return None,
     };
-    
-    // Map rank to r coordinate
-    // White starts at bottom (positive r), Black at top (negative r)
-    let r = match rank {
-        1 => 4,    // Rank 1: 11 cells (a-l)
-        2 => 3,    // Rank 2: 11 cells (a-l)
-        3 => 2,    // Rank 3: 11 cells (a-l)
-        4 => 1,    // Rank 4: 11 cells (a-l)
-        5 => 0,    // Rank 5: 11 cells (a-l)
-        6 => -1,   // Rank 6: 11 cells (a-l)
-        7 => -2,   // Rank 7: 9 cells (b-k, no a or l)
-        8 => -3,   // Rank 8: 7 cells (c-i)
-        9 => -4,   // Rank 9: 5 cells (d-h)
-        10 => -5,  // Rank 10: 3 cells (e-g)
-        11 => -6,  // Rank 11: 1 cell (f only)
-        _ => return None,  // Invalid rank
-    };
-    
-    // Validate that the file/rank combination is valid for the given rank
-    let valid = match rank {
-        1..=6 => true,  // All files a-l valid for ranks 1-6
-        7 => file != 'a' && file != 'l',  // Rank 7: b-k only
-        8 => q >= -3 && q <= 3,  // Rank 8: c-i (q: -3 to 3)
-        9 => q >= -2 && q <= 2,  // Rank 9: d-h (q: -2 to 2)
-        10 => q >= -1 && q <= 1,  // Rank 10: e-g (q: -1 to 1)
-        11 => q == 0,  // Rank 11: f only (q: 0)
-        _ => false,
-    };
-    
-    if valid {
+
+    if !(1..=11).contains(&rank) {
+        return None;
+    }
+
+    let r = rank as i32 - 6;
+    let s = -q - r;
+
+    if q.abs() <= 5 && r.abs() <= 5 && s.abs() <= 5 {
         Some(HexCoord::new(q, r))
+    } else {
+        None
+    }
+}
+
+/// Convert axial (q, r) coordinates to Gliński file/rank notation
+/// Reverse lookup from coordinates to file/rank string like "f5", "g1", etc.
+pub fn axial_to_file_rank(q: i32, r: i32) -> Option<String> {
+    // Map q to file character
+    let file = match q {
+        -5 => 'a',
+        -4 => 'b',
+        -3 => 'c',
+        -2 => 'd',
+        -1 => 'e',
+        0 => 'f',
+        1 => 'g',
+        2 => 'h',
+        3 => 'i',
+        4 => 'k',
+        5 => 'l',
+        _ => return None,  // Out of valid range
+    };
+    
+    // Map r to rank
+    let rank = match r {
+        -5 => 1,
+        -4 => 2,
+        -3 => 3,
+        -2 => 4,
+        -1 => 5,
+        0 => 6,
+        1 => 7,
+        2 => 8,
+        3 => 9,
+        4 => 10,
+        5 => 11,
+        _ => return None,  // Out of valid range
+    };
+
+    let rank = rank as u8;
+    // Validate by converting back
+    if file_rank_to_axial(file, rank) == Some(HexCoord::new(q, r)) {
+        Some(format!("{}{}", file, rank))
     } else {
         None
     }
