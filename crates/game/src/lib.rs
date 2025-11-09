@@ -351,7 +351,8 @@ fn spawn_board(
             MaterialMesh2dBundle {
                 mesh: meshes.add(RegularPolygon::new(BOARD_SCALE * 0.45, 6)).into(),
                 material: materials.add(ColorMaterial::from(base_color)),
-                transform: Transform::from_xyz(x * BOARD_SCALE, y * BOARD_SCALE, 0.0),
+                transform: Transform::from_xyz(x * BOARD_SCALE, y * BOARD_SCALE, 0.0)
+                    .with_rotation(Quat::from_rotation_z(std::f32::consts::PI / 6.0)),  // Rotate 30 degrees for flat-top
                 ..default()
             },
             HexTile { coord, base_color },
@@ -472,7 +473,8 @@ fn spawn_board(
             MaterialMesh2dBundle {
                 mesh: meshes.add(RegularPolygon::new(piece_size_pixels, 6)).into(),
                 material: materials.add(ColorMaterial::from(piece_color)),
-                transform: Transform::from_xyz(world_x, world_y, 1.0), // z=1.0 to be above tiles
+                transform: Transform::from_xyz(world_x, world_y, 1.0) // z=1.0 to be above tiles
+                    .with_rotation(Quat::from_rotation_z(std::f32::consts::PI / 6.0)),  // Rotate 30 degrees for flat-top
                 ..default()
             },
             ChessPiece { coord, piece },

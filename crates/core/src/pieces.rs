@@ -247,6 +247,7 @@ impl PieceType {
 mod tests {
     use super::*;
     use crate::board::Board;
+    use crate::coords::BoardType;
 
     #[test]
     fn test_king_moves() {
