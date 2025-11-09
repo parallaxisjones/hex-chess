@@ -83,7 +83,6 @@
             pkgs.pkg-config
             pkgs.openssl.dev
             pkgs.nodejs_20
-            pkgs.nodePackages.npm
           ];
           shellHook = ''
             # Add lld to PATH for WASM linking
