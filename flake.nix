@@ -82,7 +82,7 @@
             pkgs.lld
             pkgs.pkg-config
             pkgs.openssl.dev
-            pkgs.nodejs
+            pkgs.nodejs_20
             pkgs.nodePackages.npm
           ];
           shellHook = ''
