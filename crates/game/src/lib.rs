@@ -38,21 +38,39 @@ impl Plugin for HexChessPlugin {
     fn build(&self, app: &mut App) {
         app
             .init_state::<GameState>()
-            .insert_state(GameState::Playing) // Start in Playing state
+            .insert_state(GameState::Menu) // Start in Menu state
             .init_resource::<CapturedPieces>()
+            .init_resource::<GameConfig>()
             .add_systems(Startup, setup)
+            .add_systems(OnEnter(GameState::Menu), spawn_menu_screen)
+            .add_systems(OnExit(GameState::Menu), cleanup_menu_screen)
+            .add_systems(OnEnter(GameState::Playing), init_game_timer)
             .add_systems(Update, (
                 handle_input,
                 handle_camera_zoom,
                 handle_camera_pan,
                 update_board_visuals,
                 update_ui,
+                update_timer,
+                update_timer_display,
                 update_captured_pieces_display,
+                update_check_warning,
                 update_selection_visuals, // Show selected piece and valid moves
+                check_game_over_conditions,
             ).run_if(in_state(GameState::Playing)))
             .add_systems(Update, (
                 handle_menu_input,
             ).run_if(in_state(GameState::Menu)))
+            .add_systems(OnEnter(GameState::Rules), spawn_rules_screen)
+            .add_systems(OnExit(GameState::Rules), cleanup_rules_screen)
+            .add_systems(Update, (
+                handle_rules_input,
+            ).run_if(in_state(GameState::Rules)))
+            .add_systems(OnEnter(GameState::GameOver), spawn_game_over_screen)
+            .add_systems(OnExit(GameState::GameOver), cleanup_game_over_screen)
+            .add_systems(Update, (
+                handle_game_over_input,
+            ).run_if(in_state(GameState::GameOver)))
             .add_systems(Update, handle_menu_toggle); // Menu toggle works in all states
     }
 }
@@ -60,6 +78,7 @@ impl Plugin for HexChessPlugin {
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum GameState {
     Menu,
+    Rules,
     #[default]
     Playing,
     GameOver,
@@ -99,6 +118,56 @@ impl CapturedPieces {
     }
 }
 
+#[derive(Resource)]
+pub struct GameConfig {
+    pub timer_minutes: f32, // Timer duration in minutes
+}
+
+impl Default for GameConfig {
+    fn default() -> Self {
+        Self {
+            timer_minutes: 10.0, // Default 10 minutes per player
+        }
+    }
+}
+
+#[derive(Resource)]
+pub struct GameTimer {
+    pub white_time: f32,  // seconds remaining
+    pub black_time: f32,
+    pub white_total: f32, // configured total time
+    pub black_total: f32,
+    pub paused: bool,
+}
+
+impl GameTimer {
+    pub fn new(minutes: f32) -> Self {
+        let seconds = minutes * 60.0;
+        Self {
+            white_time: seconds,
+            black_time: seconds,
+            white_total: seconds,
+            black_total: seconds,
+            paused: false,
+        }
+    }
+    
+    pub fn reset(&mut self, minutes: f32) {
+        let seconds = minutes * 60.0;
+        self.white_time = seconds;
+        self.black_time = seconds;
+        self.white_total = seconds;
+        self.black_total = seconds;
+        self.paused = false;
+    }
+    
+    pub fn format_time(seconds: f32) -> String {
+        let mins = (seconds / 60.0).floor() as i32;
+        let secs = (seconds % 60.0).floor() as i32;
+        format!("{:02}:{:02}", mins, secs)
+    }
+}
+
 #[derive(Component)]
 pub struct HexTile {
     pub coord: HexCoord,
@@ -124,6 +193,23 @@ pub struct CapturedPiecesUI {
 
 #[derive(Component)]
 pub struct CoordinateLabel;
+
+#[derive(Component)]
+pub struct RulesScreen;
+
+#[derive(Component)]
+pub struct MenuScreen;
+
+#[derive(Component)]
+pub struct TimerUI {
+    pub color: ChessColor,
+}
+
+#[derive(Component)]
+pub struct CheckWarningUI;
+
+#[derive(Component)]
+pub struct GameOverUI;
 
 fn setup(
     mut commands: Commands,
@@ -199,14 +285,10 @@ fn spawn_board(
     _asset_server: &Res<AssetServer>,
 ) {
     // Create hex tile colors - simple, high-contrast colors for 2D
-    // Light squares: beige (#F5F5DC)
-    let light_color = bevy::prelude::Color::srgb(0.96, 0.96, 0.86);
-    
-    // Medium squares: brown (#8B7355)
-    let medium_color = bevy::prelude::Color::srgb(0.55, 0.45, 0.33);
-    
-    // Dark squares: dark brown (#654321)
-    let dark_color = bevy::prelude::Color::srgb(0.40, 0.26, 0.13);
+    // Use high-contrast earth tones to make bishop diagonals obvious.
+    let light_color = bevy::prelude::Color::srgb(0.95, 0.93, 0.84);     // warm cream
+    let medium_color = bevy::prelude::Color::srgb(0.74, 0.60, 0.39);    // amber
+    let dark_color = bevy::prelude::Color::srgb(0.38, 0.30, 0.21);      // deep brown
     
     // Debug: log cell colors availability
     let cell_colors_count = game_data.game.board.cell_colors.len();
@@ -265,7 +347,8 @@ fn spawn_board(
             MaterialMesh2dBundle {
                 mesh: meshes.add(RegularPolygon::new(BOARD_SCALE * 0.45, 6)).into(),
                 material: materials.add(ColorMaterial::from(base_color)),
-                transform: Transform::from_xyz(x * BOARD_SCALE, y * BOARD_SCALE, 0.0),
+                transform: Transform::from_xyz(x * BOARD_SCALE, y * BOARD_SCALE, 0.0)
+                    .with_rotation(Quat::from_rotation_z(std::f32::consts::PI / 6.0)),  // Rotate 30 degrees for flat-top
                 ..default()
             },
             HexTile { coord, base_color },
@@ -386,7 +469,8 @@ fn spawn_board(
             MaterialMesh2dBundle {
                 mesh: meshes.add(RegularPolygon::new(piece_size_pixels, 6)).into(),
                 material: materials.add(ColorMaterial::from(piece_color)),
-                transform: Transform::from_xyz(world_x, world_y, 1.0), // z=1.0 to be above tiles
+                transform: Transform::from_xyz(world_x, world_y, 1.0) // z=1.0 to be above tiles
+                    .with_rotation(Quat::from_rotation_z(std::f32::consts::PI / 6.0)),  // Rotate 30 degrees for flat-top
                 ..default()
             },
             ChessPiece { coord, piece },
@@ -419,54 +503,98 @@ fn spawn_board(
 pub struct RulesUI;
 
 fn spawn_ui(commands: &mut Commands, _asset_server: &Res<AssetServer>) {
-    // Main game UI (top left)
+    // Main game UI (top center) - smaller variant name
     commands.spawn((
         NodeBundle {
             style: Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(10.0),
-                left: Val::Px(10.0),
-                padding: UiRect::all(Val::Px(10.0)),
+                left: Val::Percent(50.0),
+                padding: UiRect::all(Val::Px(8.0)),
                 ..default()
             },
-            background_color: bevy::prelude::Color::srgba(0.0, 0.0, 0.0, 0.7).into(),
+            background_color: bevy::prelude::Color::srgba(0.0, 0.0, 0.0, 0.6).into(),
             ..default()
         },
         GameUI,
     )).with_children(|parent| {
         parent.spawn(TextBundle::from_section(
-            "Hexagonal Chess - Gliński's Chess",
+            "Gliński's Chess",
             TextStyle {
-                font_size: 24.0,
-                color: bevy::prelude::Color::WHITE,
+                font_size: 16.0,
+                color: bevy::prelude::Color::srgb(0.8, 0.8, 0.8),
                 ..default()
             },
         ));
     });
     
-    // Rules UI (top right)
+    // Black timer (top left)
     commands.spawn((
         NodeBundle {
             style: Style {
                 position_type: PositionType::Absolute,
-                top: Val::Px(10.0),
-                right: Val::Px(10.0),
-                width: Val::Px(300.0),
-                padding: UiRect::all(Val::Px(10.0)),
+                top: Val::Px(60.0),
+                left: Val::Px(10.0),
+                padding: UiRect::all(Val::Px(12.0)),
                 ..default()
             },
-            background_color: bevy::prelude::Color::srgba(0.0, 0.0, 0.0, 0.8).into(),
+            background_color: bevy::prelude::Color::srgba(0.15, 0.15, 0.15, 0.85).into(),
             ..default()
         },
-        RulesUI,
     )).with_children(|parent| {
         parent.spawn(TextBundle::from_section(
-            "Rules",
+            "Black",
             TextStyle {
-                font_size: 20.0,
-                color: bevy::prelude::Color::WHITE,
+                font_size: 14.0,
+                color: bevy::prelude::Color::srgb(0.7, 0.7, 0.7),
                 ..default()
             },
+        ));
+        parent.spawn((
+            TextBundle::from_section(
+                "10:00",
+                TextStyle {
+                    font_size: 24.0,
+                    color: bevy::prelude::Color::WHITE,
+                    ..default()
+                },
+            ),
+            TimerUI { color: ChessColor::Black },
+        ));
+    });
+    
+    // White timer (bottom right)
+    commands.spawn((
+        NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                bottom: Val::Px(60.0),
+                right: Val::Px(10.0),
+                padding: UiRect::all(Val::Px(12.0)),
+                ..default()
+            },
+            background_color: bevy::prelude::Color::srgba(0.15, 0.15, 0.15, 0.85).into(),
+            ..default()
+        },
+    )).with_children(|parent| {
+        parent.spawn(TextBundle::from_section(
+            "White",
+            TextStyle {
+                font_size: 14.0,
+                color: bevy::prelude::Color::srgb(0.7, 0.7, 0.7),
+                ..default()
+            },
+        ));
+        parent.spawn((
+            TextBundle::from_section(
+                "10:00",
+                TextStyle {
+                    font_size: 24.0,
+                    color: bevy::prelude::Color::WHITE,
+                    ..default()
+                },
+            ),
+            TimerUI { color: ChessColor::White },
         ));
     });
 }
@@ -735,8 +863,46 @@ fn handle_hex_click(
             
             if piece.color == game_data.game.current_player {
                 game_data.selected_piece = Some(coord);
-                game_data.valid_moves = game_data.game.board.get_valid_moves(coord);
-                let msg = wasm_bindgen::JsValue::from_str(&format!("Piece selected! Valid moves: {:?}", game_data.valid_moves));
+                
+                // Get all possible moves for this piece
+                let possible_moves = game_data.game.board.get_valid_moves(coord);
+                
+                // Filter out moves that would leave the king in check
+                let mut legal_moves = Vec::new();
+                for &target in &possible_moves {
+                    // Test if this move would be legal (doesn't leave king in check)
+                    if let Ok(_) = game_data.game.board.with_move(coord, target) {
+                        let test_board = game_data.game.board.with_move(coord, target).unwrap();
+                        
+                        // Check if our king would be in check after this move
+                        let king_pos = match test_board.get_king(game_data.game.current_player) {
+                            Some(pos) => pos,
+                            None => continue, // No king found, skip this move
+                        };
+                        
+                        // Check if any opponent piece can attack our king
+                        let opponent_color = match game_data.game.current_player {
+                            ChessColor::White => ChessColor::Black,
+                            ChessColor::Black => ChessColor::White,
+                        };
+                        
+                        let mut king_in_check = false;
+                        for (enemy_coord, enemy_piece) in test_board.get_pieces_by_color(opponent_color) {
+                            if enemy_piece.piece_type.get_moves(enemy_coord, &test_board).contains(&king_pos) {
+                                king_in_check = true;
+                                break;
+                            }
+                        }
+                        
+                        // Only add this move if it doesn't leave our king in check
+                        if !king_in_check {
+                            legal_moves.push(target);
+                        }
+                    }
+                }
+                
+                game_data.valid_moves = legal_moves;
+                let msg = wasm_bindgen::JsValue::from_str(&format!("Piece selected! Legal moves (escaping check): {:?}", game_data.valid_moves));
                 unsafe {
                     web_sys::console::log_1(&msg);
                 }
@@ -973,13 +1139,369 @@ fn handle_camera_pan(
     }
 }
 
+fn update_timer(
+    mut timer: ResMut<GameTimer>,
+    game_data: Res<GameData>,
+    time: Res<Time>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    if timer.paused {
+        return;
+    }
+    
+    let delta = time.delta_seconds();
+    
+    // Decrement current player's time
+    match game_data.game.current_player {
+        ChessColor::White => {
+            timer.white_time -= delta;
+            if timer.white_time <= 0.0 {
+                timer.white_time = 0.0;
+                timer.paused = true;
+                // Black wins by timeout
+                next_state.set(GameState::GameOver);
+                let msg = wasm_bindgen::JsValue::from_str("White ran out of time! Black wins!");
+                unsafe {
+                    web_sys::console::log_1(&msg);
+                }
+            }
+        }
+        ChessColor::Black => {
+            timer.black_time -= delta;
+            if timer.black_time <= 0.0 {
+                timer.black_time = 0.0;
+                timer.paused = true;
+                // White wins by timeout
+                next_state.set(GameState::GameOver);
+                let msg = wasm_bindgen::JsValue::from_str("Black ran out of time! White wins!");
+                unsafe {
+                    web_sys::console::log_1(&msg);
+                }
+            }
+        }
+    }
+}
+
+fn update_timer_display(
+    timer: Res<GameTimer>,
+    mut query: Query<(&mut Text, &TimerUI)>,
+) {
+    if !timer.is_changed() {
+        return;
+    }
+    
+    for (mut text, timer_ui) in query.iter_mut() {
+        let time = match timer_ui.color {
+            ChessColor::White => timer.white_time,
+            ChessColor::Black => timer.black_time,
+        };
+        text.sections[0].value = GameTimer::format_time(time);
+    }
+}
+
+fn update_check_warning(
+    mut commands: Commands,
+    game_data: Res<GameData>,
+    warning_query: Query<Entity, With<CheckWarningUI>>,
+) {
+    use hex_chess_core::GameState as CoreGameState;
+    
+    // Clean up existing warnings
+    for entity in warning_query.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
+    
+    // Show check warning if in check
+    match game_data.game.game_state {
+        CoreGameState::Check(color) => {
+            let color_name = match color {
+                ChessColor::White => "White",
+                ChessColor::Black => "Black",
+            };
+            
+            // Semi-transparent overlay
+            commands.spawn((
+                NodeBundle {
+                    style: Style {
+                        position_type: PositionType::Absolute,
+                        width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    background_color: Color::srgba(0.8, 0.0, 0.0, 0.15).into(),
+                    z_index: ZIndex::Global(500),
+                    ..default()
+                },
+                CheckWarningUI,
+            )).with_children(|parent| {
+                parent.spawn(TextBundle::from_section(
+                    format!("CHECK! - {} King Under Attack!", color_name),
+                    TextStyle {
+                        font_size: 32.0,
+                        color: Color::srgb(1.0, 0.2, 0.2),
+                        ..default()
+                    },
+                ));
+            });
+            
+            let msg = wasm_bindgen::JsValue::from_str(&format!("{} is in CHECK!", color_name));
+            unsafe {
+                web_sys::console::log_1(&msg);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn check_game_over_conditions(
+    game_data: Res<GameData>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    use hex_chess_core::GameState as CoreGameState;
+    
+    // First check if the core game already detected game over
+    match game_data.game.game_state {
+        CoreGameState::Checkmate(_) | CoreGameState::Stalemate | CoreGameState::Draw => {
+            next_state.set(GameState::GameOver);
+            
+            let msg = match game_data.game.game_state {
+                CoreGameState::Checkmate(winner) => {
+                    let winner_name = match winner {
+                        ChessColor::White => "White",
+                        ChessColor::Black => "Black",
+                    };
+                    wasm_bindgen::JsValue::from_str(&format!("CHECKMATE! {} wins!", winner_name))
+                }
+                CoreGameState::Stalemate => wasm_bindgen::JsValue::from_str("STALEMATE! Game is a draw."),
+                CoreGameState::Draw => wasm_bindgen::JsValue::from_str("DRAW! Game over."),
+                _ => return,
+            };
+            
+            unsafe {
+                web_sys::console::log_1(&msg);
+            }
+            return;
+        }
+        _ => {}
+    }
+    
+    // Additional check: If in check and no legal moves are available, it's checkmate
+    // This catches checkmate situations immediately without waiting for a move attempt
+    if matches!(game_data.game.game_state, CoreGameState::Check(_)) {
+        // Check all pieces of the current player to see if ANY legal move exists
+        let mut has_legal_move = false;
+        
+        for (coord, _piece) in game_data.game.board.get_pieces_by_color(game_data.game.current_player) {
+            let possible_moves = game_data.game.board.get_valid_moves(coord);
+            
+            // Test each move to see if it escapes check
+            for target in possible_moves {
+                if let Ok(test_board) = game_data.game.board.with_move(coord, target) {
+                    // Check if king would still be in check
+                    if let Some(king_pos) = test_board.get_king(game_data.game.current_player) {
+                        let opponent_color = match game_data.game.current_player {
+                            ChessColor::White => ChessColor::Black,
+                            ChessColor::Black => ChessColor::White,
+                        };
+                        
+                        let mut king_in_check = false;
+                        for (enemy_coord, enemy_piece) in test_board.get_pieces_by_color(opponent_color) {
+                            if enemy_piece.piece_type.get_moves(enemy_coord, &test_board).contains(&king_pos) {
+                                king_in_check = true;
+                                break;
+                            }
+                        }
+                        
+                        if !king_in_check {
+                            has_legal_move = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if has_legal_move {
+                break;
+            }
+        }
+        
+        // If no legal moves exist while in check, it's checkmate
+        if !has_legal_move {
+            next_state.set(GameState::GameOver);
+            let winner_name = match game_data.game.current_player {
+                ChessColor::White => "Black", // White is checkmated, Black wins
+                ChessColor::Black => "White", // Black is checkmated, White wins
+            };
+            let msg = wasm_bindgen::JsValue::from_str(&format!("CHECKMATE detected! {} wins!", winner_name));
+            unsafe {
+                web_sys::console::log_1(&msg);
+            }
+        }
+    }
+}
+
+fn spawn_menu_screen(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+) {
+    let msg = wasm_bindgen::JsValue::from_str("Spawning menu screen...");
+    unsafe {
+        web_sys::console::log_1(&msg);
+    }
+    
+    // Full screen menu background
+    commands.spawn((
+        NodeBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                top: Val::Px(0.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                flex_direction: FlexDirection::Column,
+                padding: UiRect::all(Val::Px(40.0)),
+                ..default()
+            },
+            background_color: Color::srgba(0.05, 0.05, 0.1, 0.95).into(),
+            z_index: ZIndex::Global(1000),
+            ..default()
+        },
+        MenuScreen,
+    )).with_children(|parent| {
+        // Title
+        parent.spawn(TextBundle::from_section(
+            "Hexagonal Chess",
+            TextStyle {
+                font_size: 48.0,
+                color: Color::srgb(0.9, 0.9, 0.9),
+                ..default()
+            },
+        ).with_style(Style {
+            margin: UiRect::bottom(Val::Px(40.0)),
+            ..default()
+        }));
+        
+        // Timer configuration
+        parent.spawn(TextBundle::from_section(
+            format!("Timer: {} minutes per player", config.timer_minutes as i32),
+            TextStyle {
+                font_size: 20.0,
+                color: Color::srgb(0.8, 0.8, 0.8),
+                ..default()
+            },
+        ).with_style(Style {
+            margin: UiRect::bottom(Val::Px(10.0)),
+            ..default()
+        }));
+        
+        parent.spawn(TextBundle::from_section(
+            "Use UP/DOWN arrows to adjust (1-60 min)",
+            TextStyle {
+                font_size: 14.0,
+                color: Color::srgb(0.6, 0.6, 0.6),
+                ..default()
+            },
+        ).with_style(Style {
+            margin: UiRect::bottom(Val::Px(30.0)),
+            ..default()
+        }));
+        
+        // Menu options
+        parent.spawn(TextBundle::from_section(
+            "Press SPACE or M to Start Game",
+            TextStyle {
+                font_size: 20.0,
+                color: Color::srgb(0.4, 0.8, 0.4),
+                ..default()
+            },
+        ).with_style(Style {
+            margin: UiRect::bottom(Val::Px(15.0)),
+            ..default()
+        }));
+        
+        parent.spawn(TextBundle::from_section(
+            "Press R to View Rules",
+            TextStyle {
+                font_size: 18.0,
+                color: Color::srgb(0.7, 0.7, 0.7),
+                ..default()
+            },
+        ).with_style(Style {
+            margin: UiRect::bottom(Val::Px(15.0)),
+            ..default()
+        }));
+    });
+}
+
+fn cleanup_menu_screen(
+    mut commands: Commands,
+    query: Query<Entity, With<MenuScreen>>,
+) {
+    for entity in query.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
+    
+    let msg = wasm_bindgen::JsValue::from_str("Cleaned up menu screen");
+    unsafe {
+        web_sys::console::log_1(&msg);
+    }
+}
+
+fn init_game_timer(
+    mut commands: Commands,
+    config: Res<GameConfig>,
+) {
+    let timer = GameTimer::new(config.timer_minutes);
+    commands.insert_resource(timer);
+    
+    let msg = wasm_bindgen::JsValue::from_str(&format!("Initialized game timer: {} minutes", config.timer_minutes));
+    unsafe {
+        web_sys::console::log_1(&msg);
+    }
+}
+
 fn handle_menu_input(
     mut game_state: ResMut<NextState<GameState>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut config: ResMut<GameConfig>,
+    mut menu_query: Query<&mut Text, With<MenuScreen>>,
 ) {
+    // Adjust timer with up/down arrows
+    if keyboard_input.just_pressed(KeyCode::ArrowUp) {
+        config.timer_minutes = (config.timer_minutes + 1.0).min(60.0);
+        update_menu_timer_display(&mut menu_query, config.timer_minutes);
+    }
+    if keyboard_input.just_pressed(KeyCode::ArrowDown) {
+        config.timer_minutes = (config.timer_minutes - 1.0).max(1.0);
+        update_menu_timer_display(&mut menu_query, config.timer_minutes);
+    }
+    
     // Press Space or M to start/return to game
     if keyboard_input.just_pressed(KeyCode::Space) || keyboard_input.just_pressed(KeyCode::KeyM) {
         game_state.set(GameState::Playing);
+    }
+    
+    // Press R to view rules
+    if keyboard_input.just_pressed(KeyCode::KeyR) {
+        game_state.set(GameState::Rules);
+        let msg = wasm_bindgen::JsValue::from_str("Switching to Rules state");
+        unsafe {
+            web_sys::console::log_1(&msg);
+        }
+    }
+}
+
+fn update_menu_timer_display(menu_query: &mut Query<&mut Text, With<MenuScreen>>, minutes: f32) {
+    // Update the timer display text (second text element)
+    for mut text in menu_query.iter_mut() {
+        if text.sections[0].value.starts_with("Timer:") {
+            text.sections[0].value = format!("Timer: {} minutes per player", minutes as i32);
+            break;
+        }
     }
 }
 
@@ -1006,10 +1528,14 @@ fn spawn_coordinate_labels(
             let label_x = px * BOARD_SCALE * LABEL_DISTANCE;
             let label_y = py * BOARD_SCALE * LABEL_DISTANCE;
             
+            // Use Gliński file/rank notation if available, otherwise fall back to axial
+            let label_text = coord.to_file_rank()
+                .unwrap_or_else(|| format!("({}, {})", coord.q, coord.r));
+            
             commands.spawn((
                 Text2dBundle {
                     text: Text::from_section(
-                        format!("({}, {})", coord.q, coord.r),
+                        label_text,
                         TextStyle {
                             font_size: 11.0,
                             color: Color::srgba(0.7, 0.7, 0.7, 0.6),
@@ -1158,6 +1684,325 @@ fn update_captured_pieces_display(
                 }
             }
             text.sections[0].value = display;
+        }
+    }
+}
+
+fn spawn_rules_screen(
+    mut commands: Commands,
+) {
+    let msg = wasm_bindgen::JsValue::from_str("Spawning rules screen...");
+    unsafe {
+        web_sys::console::log_1(&msg);
+    }
+    
+    // Full screen dark background
+    commands.spawn((
+        NodeBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                top: Val::Px(0.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                flex_direction: FlexDirection::Column,
+                padding: UiRect::all(Val::Px(40.0)),
+                ..default()
+            },
+            background_color: Color::srgba(0.0, 0.0, 0.0, 0.95).into(),
+            z_index: ZIndex::Global(1000),
+            ..default()
+        },
+        RulesScreen,
+    )).with_children(|parent| {
+        // Title
+        parent.spawn(TextBundle::from_section(
+            "Hexagonal Chess - Rules",
+            TextStyle {
+                font_size: 32.0,
+                color: Color::srgb(0.9, 0.9, 0.9),
+                ..default()
+            },
+        ).with_style(Style {
+            margin: UiRect::bottom(Val::Px(20.0)),
+            ..default()
+        }));
+        
+        // Rules content
+        let rules_text = "\
+Hexagonal Chess (Gliński's Chess)
+
+OBJECTIVE:
+Checkmate your opponent's king.
+
+PIECES:
+• King (K) - Moves one space in any direction
+• Queen (Q) - Moves any distance in any direction
+• Rook (R) - Moves along straight lines
+• Bishop (B) - Moves diagonally
+• Knight (N) - Moves in an L-shape
+• Pawn (P) - Moves forward, captures diagonally
+
+SPECIAL RULES:
+• Pawns move forward toward opponent
+• En passant capture is allowed
+• Check: Your king is under attack
+• Checkmate: Your king has no legal moves to escape check
+• Stalemate: No legal moves available (draw)
+
+CONTROLS:
+• Click to select and move pieces
+• Mouse wheel or +/- to zoom
+• Arrow keys to pan camera
+• R to reset camera
+• ESC to return to menu
+
+Press ESC or SPACE to return to menu";
+        
+        parent.spawn(TextBundle::from_section(
+            rules_text,
+            TextStyle {
+                font_size: 16.0,
+                color: Color::srgb(0.85, 0.85, 0.85),
+                ..default()
+            },
+        ).with_style(Style {
+            max_width: Val::Px(700.0),
+            ..default()
+        }).with_text_justify(JustifyText::Left));
+        
+        // Back button hint
+        parent.spawn(TextBundle::from_section(
+            "Press ESC or SPACE to go back",
+            TextStyle {
+                font_size: 14.0,
+                color: Color::srgb(0.7, 0.7, 0.7),
+                ..default()
+            },
+        ).with_style(Style {
+            margin: UiRect::top(Val::Px(30.0)),
+            ..default()
+        }));
+    });
+}
+
+fn cleanup_rules_screen(
+    mut commands: Commands,
+    query: Query<Entity, With<RulesScreen>>,
+) {
+    for entity in query.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
+    
+    let msg = wasm_bindgen::JsValue::from_str("Cleaned up rules screen");
+    unsafe {
+        web_sys::console::log_1(&msg);
+    }
+}
+
+fn handle_rules_input(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    // Return to menu with ESC or Space
+    if keyboard_input.just_pressed(KeyCode::Escape) || keyboard_input.just_pressed(KeyCode::Space) {
+        next_state.set(GameState::Menu);
+        let msg = wasm_bindgen::JsValue::from_str("Returning to menu from rules");
+        unsafe {
+            web_sys::console::log_1(&msg);
+        }
+    }
+}
+
+fn spawn_game_over_screen(
+    mut commands: Commands,
+    game_data: Res<GameData>,
+    timer: Option<Res<GameTimer>>,
+) {
+    use hex_chess_core::GameState as CoreGameState;
+    
+    let msg = wasm_bindgen::JsValue::from_str("Spawning game over screen...");
+    unsafe {
+        web_sys::console::log_1(&msg);
+    }
+    
+    // Determine the result message
+    let (title, subtitle, reason) = match game_data.game.game_state {
+        CoreGameState::Checkmate(winner) => {
+            let winner_name = match winner {
+                ChessColor::White => "White",
+                ChessColor::Black => "Black",
+            };
+            (
+                "CHECKMATE!".to_string(),
+                format!("{} Wins!", winner_name),
+                "by checkmate".to_string(),
+            )
+        }
+        CoreGameState::Stalemate => {
+            ("STALEMATE!".to_string(), "Draw".to_string(), "no legal moves available".to_string())
+        }
+        CoreGameState::Draw => {
+            ("DRAW!".to_string(), "Game Over".to_string(), "by agreement".to_string())
+        }
+        _ => {
+            // Check if it was a timeout
+            if let Some(timer) = timer.as_ref() {
+                if timer.white_time <= 0.0 {
+                    ("TIME'S UP!".to_string(), "Black Wins!".to_string(), "White ran out of time".to_string())
+                } else if timer.black_time <= 0.0 {
+                    ("TIME'S UP!".to_string(), "White Wins!".to_string(), "Black ran out of time".to_string())
+                } else {
+                    ("GAME OVER".to_string(), "".to_string(), "".to_string())
+                }
+            } else {
+                ("GAME OVER".to_string(), "".to_string(), "".to_string())
+            }
+        }
+    };
+    
+    // Full screen overlay
+    commands.spawn((
+        NodeBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                top: Val::Px(0.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                flex_direction: FlexDirection::Column,
+                padding: UiRect::all(Val::Px(40.0)),
+                ..default()
+            },
+            background_color: Color::srgba(0.0, 0.0, 0.0, 0.85).into(),
+            z_index: ZIndex::Global(2000),
+            ..default()
+        },
+        GameOverUI,
+    )).with_children(|parent| {
+        // Title
+        parent.spawn(TextBundle::from_section(
+            title,
+            TextStyle {
+                font_size: 56.0,
+                color: Color::srgb(1.0, 0.9, 0.2),
+                ..default()
+            },
+        ).with_style(Style {
+            margin: UiRect::bottom(Val::Px(20.0)),
+            ..default()
+        }));
+        
+        // Subtitle (winner)
+        if !subtitle.is_empty() {
+            parent.spawn(TextBundle::from_section(
+                subtitle,
+                TextStyle {
+                    font_size: 40.0,
+                    color: Color::srgb(0.9, 0.9, 0.9),
+                    ..default()
+                },
+            ).with_style(Style {
+                margin: UiRect::bottom(Val::Px(15.0)),
+                ..default()
+            }));
+        }
+        
+        // Reason
+        if !reason.is_empty() {
+            parent.spawn(TextBundle::from_section(
+                reason,
+                TextStyle {
+                    font_size: 20.0,
+                    color: Color::srgb(0.7, 0.7, 0.7),
+                    ..default()
+                },
+            ).with_style(Style {
+                margin: UiRect::bottom(Val::Px(40.0)),
+                ..default()
+            }));
+        }
+        
+        // New Game button hint
+        parent.spawn(TextBundle::from_section(
+            "Press SPACE for New Game",
+            TextStyle {
+                font_size: 24.0,
+                color: Color::srgb(0.4, 0.8, 0.4),
+                ..default()
+            },
+        ).with_style(Style {
+            margin: UiRect::bottom(Val::Px(10.0)),
+            ..default()
+        }));
+        
+        parent.spawn(TextBundle::from_section(
+            "Press ESC to Return to Menu",
+            TextStyle {
+                font_size: 18.0,
+                color: Color::srgb(0.6, 0.6, 0.6),
+                ..default()
+            },
+        ));
+    });
+}
+
+fn cleanup_game_over_screen(
+    mut commands: Commands,
+    query: Query<Entity, With<GameOverUI>>,
+) {
+    for entity in query.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
+    
+    let msg = wasm_bindgen::JsValue::from_str("Cleaned up game over screen");
+    unsafe {
+        web_sys::console::log_1(&msg);
+    }
+}
+
+fn handle_game_over_input(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut commands: Commands,
+    config: Res<GameConfig>,
+    mut game_data: ResMut<GameData>,
+    mut captured_pieces: ResMut<CapturedPieces>,
+) {
+    // Start new game with Space
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        // Reset the game
+        let variant = Variants::glinski_chess();
+        game_data.game = hex_chess_core::Game::new(variant);
+        game_data.selected_piece = None;
+        game_data.valid_moves.clear();
+        
+        // Reset captured pieces
+        captured_pieces.white.clear();
+        captured_pieces.black.clear();
+        
+        // Reset and start timer
+        let timer = GameTimer::new(config.timer_minutes);
+        commands.insert_resource(timer);
+        
+        next_state.set(GameState::Playing);
+        
+        let msg = wasm_bindgen::JsValue::from_str("Starting new game");
+        unsafe {
+            web_sys::console::log_1(&msg);
+        }
+    }
+    
+    // Return to menu with ESC
+    if keyboard_input.just_pressed(KeyCode::Escape) {
+        next_state.set(GameState::Menu);
+        let msg = wasm_bindgen::JsValue::from_str("Returning to menu from game over");
+        unsafe {
+            web_sys::console::log_1(&msg);
         }
     }
 }

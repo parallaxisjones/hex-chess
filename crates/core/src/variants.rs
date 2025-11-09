@@ -75,55 +75,84 @@ impl Variants {
     pub fn glinski_chess() -> VariantConfig {
         let mut starting_positions = HashMap::new();
         
-        // White pieces (bottom of board)
-        // Pawns at r=4 (one row forward from back rank) - 9 pawns
-        for q in -4..=4 {
-            let coord = HexCoord::new(q, 4);
-            if coord.in_hexagon(5) {
-                starting_positions.insert(coord, Piece::new(PieceType::Pawn, Color::White));
-            }
+        // Standard Gliński's Chess starting position (91-cell hexagonal board, radius 5)
+        // Using authoritative file/rank notation: files a-l (no j), ranks 1-11
+        // Reference: https://greenchess.net/rules.php?v=glinski
+        // Each side: 1K, 1Q, 2R, 2N, 3B, 9P = 18 pieces per side (36 total)
+        
+        let mut place_piece = |file: char, rank: u8, piece_type: PieceType, color: Color| {
+            let coord = HexCoord::from_file_rank(file, rank)
+                .unwrap_or_else(|| panic!("Invalid square for Gliński mapping: {}{}", file, rank));
+            let previous = starting_positions.insert(coord, Piece::new(piece_type, color));
+            assert!(previous.is_none(), "Duplicate placement at {:?}", coord);
+        };
+
+        // White pieces (bottom)
+        for (file, rank, piece_type) in [
+            ('f', 1, PieceType::Bishop),
+            ('f', 2, PieceType::Bishop),
+            ('f', 3, PieceType::Bishop),
+            ('g', 1, PieceType::King),
+            ('d', 3, PieceType::Knight),
+            ('h', 1, PieceType::Knight),
+            ('e', 2, PieceType::Queen),
+            ('c', 4, PieceType::Rook),
+            ('i', 1, PieceType::Rook),
+        ] {
+            place_piece(file, rank, piece_type, Color::White);
         }
-        
-        // White back rank (at r=5, within board radius 5) - 6 positions
-        // Standard Gliński's setup: Rook, Knight, Bishop, King, Queen, Bishop, Knight, Rook, Rook, Bishop
-        // At r=5, valid q range is -5 to 0 (due to hexagon constraint)
-        starting_positions.insert(HexCoord::new(-5, 5), Piece::new(PieceType::Rook, Color::White));
-        starting_positions.insert(HexCoord::new(-4, 5), Piece::new(PieceType::Knight, Color::White));
-        starting_positions.insert(HexCoord::new(-3, 5), Piece::new(PieceType::Bishop, Color::White));
-        starting_positions.insert(HexCoord::new(-2, 5), Piece::new(PieceType::Queen, Color::White));
-        starting_positions.insert(HexCoord::new(-1, 5), Piece::new(PieceType::King, Color::White));
-        starting_positions.insert(HexCoord::new(0, 5), Piece::new(PieceType::Bishop, Color::White));
-        
-        // Additional White pieces at r=3 to complete the setup
-        starting_positions.insert(HexCoord::new(-5, 4), Piece::new(PieceType::Rook, Color::White));
-        starting_positions.insert(HexCoord::new(4, 4), Piece::new(PieceType::Knight, Color::White));
-        starting_positions.insert(HexCoord::new(-4, 3), Piece::new(PieceType::Rook, Color::White));
-        starting_positions.insert(HexCoord::new(5, 4), Piece::new(PieceType::Bishop, Color::White));
-        
-        // Black pieces (top of board)
-        // Pawns at r=-4 (one row forward from back rank) - 9 pawns
-        for q in -4..=4 {
-            let coord = HexCoord::new(q, -4);
-            if coord.in_hexagon(5) {
-                starting_positions.insert(coord, Piece::new(PieceType::Pawn, Color::Black));
-            }
+
+        for (file, rank) in [
+            ('b', 5),
+            ('c', 5),
+            ('d', 5),
+            ('e', 5),
+            ('f', 5),
+            ('g', 4),
+            ('h', 3),
+            ('i', 2),
+            ('k', 1),
+        ] {
+            place_piece(file, rank, PieceType::Pawn, Color::White);
         }
-        
-        // Black back rank (at r=-5, within board radius 5) - 6 positions
-        // At r=-5, valid q range is 0 to 5 (due to hexagon constraint)
-        starting_positions.insert(HexCoord::new(0, -5), Piece::new(PieceType::Bishop, Color::Black));
-        starting_positions.insert(HexCoord::new(1, -5), Piece::new(PieceType::King, Color::Black));
-        starting_positions.insert(HexCoord::new(2, -5), Piece::new(PieceType::Queen, Color::Black));
-        starting_positions.insert(HexCoord::new(3, -5), Piece::new(PieceType::Bishop, Color::Black));
-        starting_positions.insert(HexCoord::new(4, -5), Piece::new(PieceType::Knight, Color::Black));
-        starting_positions.insert(HexCoord::new(5, -5), Piece::new(PieceType::Rook, Color::Black));
-        
-        // Additional Black pieces at r=-3 to complete the setup
-        starting_positions.insert(HexCoord::new(-5, -4), Piece::new(PieceType::Bishop, Color::Black));
-        starting_positions.insert(HexCoord::new(-4, -4), Piece::new(PieceType::Knight, Color::Black));
-        starting_positions.insert(HexCoord::new(4, -3), Piece::new(PieceType::Rook, Color::Black));
-        starting_positions.insert(HexCoord::new(5, -4), Piece::new(PieceType::Rook, Color::Black));
-        
+
+        // Black pieces (top)
+        for (file, rank, piece_type) in [
+            ('f', 9, PieceType::Bishop),
+            ('f', 10, PieceType::Bishop),
+            ('f', 11, PieceType::Bishop),
+            ('g', 10, PieceType::King),
+            ('d', 11, PieceType::Knight),
+            ('h', 9, PieceType::Knight),
+            ('e', 11, PieceType::Queen),
+            ('c', 11, PieceType::Rook),
+            ('i', 8, PieceType::Rook),
+        ] {
+            place_piece(file, rank, piece_type, Color::Black);
+        }
+
+        for (file, rank) in [
+            ('b', 11),
+            ('c', 10),
+            ('d', 9),
+            ('e', 8),
+            ('f', 7),
+            ('g', 7),
+            ('h', 7),
+            ('i', 7),
+            ('k', 7),
+        ] {
+            place_piece(file, rank, PieceType::Pawn, Color::Black);
+        }
+
+        debug_assert_eq!(starting_positions.len(), 36);
+        debug_assert!(
+            starting_positions
+                .keys()
+                .all(|coord| coord.in_hexagon(5)),
+            "All starting pieces must fit within radius 5"
+        );
+
         VariantConfig {
             name: "Gliński's Chess".to_string(),
             description: "91 cells, regular hexagon".to_string(),

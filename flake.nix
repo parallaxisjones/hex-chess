@@ -1,6 +1,17 @@
 {
   description = "Hexagonal Chess WASM Game with P2P Multiplayer";
-
+  nixConfig = {
+    substituters = [
+      "https://cache.nixos.org/"
+      "https://nix-community.cachix.org"
+    ];
+    trusted-public-keys = [
+      "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+      "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+    ];
+    # optional: quiet the buffer warning
+    download-buffer-size = 268435456; # 256MiB
+  };
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
@@ -14,12 +25,12 @@
           inherit system; 
           overlays = [ 
             rust-overlay.overlays.default
-            (final: prev: {
-              # Override nodejs to skip tests (some tests timeout on macOS)
-              nodejs = prev.nodejs.overrideAttrs (oldAttrs: {
-                doCheck = false;
-              });
-            })
+            # (final: prev: {
+            #   # Override nodejs to skip tests (some tests timeout on macOS)
+            #   nodejs = prev.nodejs.overrideAttrs (oldAttrs: {
+            #     doCheck = false;
+            #   });
+            # })
           ]; 
         };
         rustToolchain = pkgs.rust-bin.stable.latest.default.override {
@@ -71,8 +82,7 @@
             pkgs.lld
             pkgs.pkg-config
             pkgs.openssl.dev
-            pkgs.nodejs
-            pkgs.nodePackages.npm
+            pkgs.nodejs_20
           ];
           shellHook = ''
             # Add lld to PATH for WASM linking

@@ -1,15 +1,15 @@
 [build]
-target = "index.html"
+target = "crates/game/index.html"
 dist = "dist"
 public_url = "/"
 
 [serve]
 address = "127.0.0.1"
-port = 8080
+port = 8081
 open = true
 
 [watch]
-watch = ["src", "assets", "index.html"]
+watch = ["crates/game/src", "crates/core/src", "web", "crates/game/index.html"]
 ignore = ["dist", "target"]
 
 [clean]

@@ -188,9 +188,21 @@ impl PieceType {
         let piece = board.get_piece(from).unwrap();
         
         // In Gliński's Chess, pawns move straight forward (1 direction)
-        let forward_direction = match piece.color {
-            Color::White => HexCoord::new(0, -1),   // Straight forward (northwest)
-            Color::Black => HexCoord::new(0, 1),    // Straight forward (southeast)
+        let (forward_direction, capture_directions) = match piece.color {
+            Color::White => (
+                HexCoord::new(0, 1), // move toward the opponent (increasing r)
+                [
+                    HexCoord::new(-1, 1), // forward-left
+                    HexCoord::new(1, 0),  // forward-right
+                ],
+            ),
+            Color::Black => (
+                HexCoord::new(0, -1), // move toward the opponent (decreasing r)
+                [
+                    HexCoord::new(-1, 0),  // forward-left
+                    HexCoord::new(1, -1),  // forward-right
+                ],
+            ),
         };
         
         // Pawns can move forward to an empty square
@@ -200,17 +212,6 @@ impl PieceType {
         }
         
         // Pawns capture diagonally forward (2 directions)
-        let capture_directions = match piece.color {
-            Color::White => [
-                HexCoord::new(-1, -1), // Forward-left diagonal (west)
-                HexCoord::new(1, -1),  // Forward-right diagonal (northeast)
-            ],
-            Color::Black => [
-                HexCoord::new(-1, 1), // Forward-left diagonal (southwest)
-                HexCoord::new(1, 1),  // Forward-right diagonal (east)
-            ],
-        };
-        
         for capture_dir in capture_directions {
             let capture_target = from + capture_dir;
             if board.is_valid_coord(capture_target) {
@@ -247,6 +248,7 @@ impl PieceType {
 mod tests {
     use super::*;
     use crate::board::Board;
+    use crate::coords::BoardType;
 
     #[test]
     fn test_king_moves() {
