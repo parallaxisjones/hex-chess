@@ -184,7 +184,7 @@ MIT License - see LICENSE file for details.
 
 The repo ships with two GitHub Actions workflows:
 
-- `.github/workflows/pages.yml` builds the WASM bundle with `trunk build --release`, uploads `dist/`, and publishes it via `actions/deploy-pages` whenever `main` changes (or when triggered manually).
+- `.github/workflows/pages.yml` builds the WASM bundle with `trunk build --release`, uploading `dist/` and deploying via `actions/deploy-pages`. The workflow installs the wasm target plus `llvm-tools-preview` and runs with `RUSTFLAGS="-C linker=rust-lld"`, so no external linker is required.
 - `.github/workflows/pages-preview.yml` runs the same build on pull requests to catch regressions without deploying.
 
 To publish via GitHub Pages:

@@ -29,6 +29,7 @@ jobs:
           toolchain: stable
           target: wasm32-unknown-unknown
           profile: minimal
+          components: llvm-tools-preview
 
       - name: Install trunk
         run: |
@@ -36,7 +37,7 @@ jobs:
 
       - name: Build site
         run: |
-          trunk build --release
+          RUSTFLAGS="-C linker=rust-lld" trunk build --release
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

@@ -1750,7 +1750,7 @@ PIECES:
 • King (K) - Moves one space in any direction
 • Queen (Q) - Moves any distance in any direction
 • Rook (R) - Moves along straight lines
-• Bishop (B) - Moves diagonally
+• Bishop (B) - Moves diagonally (per color)
 • Knight (N) - Moves in an L-shape
 • Pawn (P) - Moves forward, captures diagonally
 
