@@ -3,6 +3,7 @@ use bevy::input::mouse::MouseWheel;
 use bevy::sprite::{MaterialMesh2dBundle, ColorMaterial};
 use hex_chess_core::{HexCoord, Piece, PieceType, Variants, Color as ChessColor, CellColor};
 use wasm_bindgen::prelude::*;
+use web_sys::Event;
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.
@@ -24,6 +25,8 @@ pub fn main() {
                 title: "Hexagonal Chess".into(),
                 resolution: (1200.0, 800.0).into(),
                 resizable: true,
+                canvas: Some("#game-canvas".into()),
+                fit_canvas_to_parent: true,
                 ..default()
             }),
             ..default()
@@ -238,7 +241,7 @@ fn setup(
     let camera_entity = commands.spawn(Camera2dBundle {
         transform: Transform::from_xyz(0.0, 0.0, 1000.0), // 2D camera uses z for depth
         projection: OrthographicProjection {
-            scale: 1.2, // Default zoom level for comfortable viewing
+            scale: 0.9, // Zoom in a bit more to fill the frame
             ..default()
         }.into(),
         ..default()
@@ -275,6 +278,12 @@ fn setup(
     
     // Spawn captured pieces display areas
     spawn_captured_pieces_areas(&mut commands);
+
+    if let Some(window) = web_sys::window() {
+        if let Ok(event) = Event::new("hex-chess-ready") {
+            let _ = window.dispatch_event(&event);
+        }
+    }
 }
 
 fn spawn_board(

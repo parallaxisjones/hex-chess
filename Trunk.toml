@@ -9,7 +9,7 @@ port = 8081
 open = true
 
 [watch]
-watch = ["crates/game/src", "crates/core/src", "web", "crates/game/index.html"]
+watch = ["crates/game/src", "crates/core/src", "crates/game/index.html"]
 ignore = ["dist", "target"]
 
 [clean]

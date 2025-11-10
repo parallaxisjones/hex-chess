@@ -1,123 +1,1033 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Hexagonal Chess</title>
-    <link data-trunk rel="css" href="../../web/styles.css">
     <style>
+        :root {
+            color-scheme: dark;
+            --bg-primary: #090c14;
+            --bg-secondary: rgba(17, 22, 33, 0.92);
+            --panel-background: rgba(15, 20, 30, 0.78);
+            --panel-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #f5f7ff;
+            --text-secondary: #9ba6c9;
+            --text-muted: rgba(155, 166, 201, 0.8);
+            --accent: #5d9bff;
+            --accent-strong: #3478ff;
+            --success: #50d28a;
+            --danger: #ff6b81;
+            --shadow-elevated: 0 28px 55px rgba(5, 9, 17, 0.55);
+            --radius-large: 24px;
+            --radius-medium: 16px;
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+        }
+
         body {
             margin: 0;
+            padding: clamp(12px, 3vw, 24px);
+            min-height: 100vh;
+            background: radial-gradient(125% 140% at 50% 20%, #1d2844 0%, #111623 38%, #070910 65%, #04050a 100%);
+            color: var(--text-primary);
+            font-family: inherit;
+            display: flex;
+            align-items: stretch;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            transition: padding 0.3s ease;
+        }
+
+        body.menu-open {
+            overflow-y: auto;
+        }
+
+        body.is-fullscreen {
             padding: 0;
-            background: #1a1a1a;
-            color: white;
-            font-family: Arial, sans-serif;
+        }
+
+        .background-glow {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(60% 60% at 20% 20%, rgba(93, 155, 255, 0.18) 0%, rgba(93, 155, 255, 0) 70%),
+                radial-gradient(45% 55% at 80% 10%, rgba(173, 96, 255, 0.18) 0%, rgba(173, 96, 255, 0) 70%),
+                radial-gradient(50% 80% at 50% 100%, rgba(80, 210, 138, 0.2) 0%, rgba(80, 210, 138, 0) 80%);
+            z-index: 0;
+        }
+
+        .app-shell {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex: 1;
+            width: min(1500px, 100%);
+            min-height: clamp(640px, calc(100vh - clamp(24px, 6vw, 48px)), 1000px);
+            background: rgba(9, 12, 20, 0.82);
+            backdrop-filter: blur(18px);
+            border-radius: var(--radius-large);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+            box-shadow: var(--shadow-elevated);
+        }
+
+        body.is-fullscreen .app-shell {
+            border-radius: 0;
+            border: none;
+            box-shadow: none;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            flex: 0 0 clamp(280px, 28vw, 360px);
+            background: linear-gradient(180deg, rgba(17, 22, 33, 0.96), rgba(12, 17, 27, 0.92));
+            padding: clamp(20px, 3.5vw, 36px);
+            display: flex;
+            flex-direction: column;
+            gap: clamp(18px, 3vw, 28px);
+            border-right: 1px solid rgba(255, 255, 255, 0.04);
+            overflow-y: auto;
+        }
+
+        body.is-fullscreen .sidebar {
+            display: none;
+        }
+
+        .sidebar__header {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .sidebar__eyebrow {
+            letter-spacing: 0.32em;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            color: rgba(157, 176, 219, 0.6);
+        }
+
+        .sidebar__title {
+            margin: 0;
+            font-size: clamp(1.6rem, 2.3vw, 2.1rem);
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
+        .sidebar__subtitle {
+            margin: 0;
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        .panel {
+            background: var(--panel-background);
+            border: 1px solid var(--panel-border);
+            border-radius: var(--radius-medium);
+            padding: clamp(18px, 3vw, 24px);
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            box-shadow: 0 18px 40px rgba(8, 11, 18, 0.45);
+        }
+
+        .panel__title {
+            margin: 0;
+            font-size: 0.78rem;
+            letter-spacing: 0.28em;
+            text-transform: uppercase;
+            color: rgba(158, 173, 211, 0.75);
+        }
+
+        .variant-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .variant-button {
+            appearance: none;
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            background: linear-gradient(140deg, rgba(31, 41, 61, 0.82), rgba(18, 24, 36, 0.95));
+            border-radius: 14px;
+            padding: 14px 16px;
+            text-align: left;
+            color: inherit;
+            cursor: pointer;
+            transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .variant-button__title {
+            font-weight: 600;
+            font-size: 0.98rem;
+            letter-spacing: 0.015em;
+        }
+
+        .variant-button__meta {
+            font-size: 0.74rem;
+            color: var(--text-muted);
+            letter-spacing: 0.02em;
+        }
+
+        .variant-button:hover,
+        .variant-button:focus-visible {
+            outline: none;
+            border-color: rgba(93, 155, 255, 0.8);
+            box-shadow: 0 0 0 1px rgba(93, 155, 255, 0.55), 0 22px 48px rgba(93, 155, 255, 0.18);
+            transform: translateY(-1px);
+        }
+
+        .variant-button.selected {
+            border-color: rgba(93, 155, 255, 0.95);
+            box-shadow: 0 0 0 1px rgba(93, 155, 255, 0.7), 0 28px 60px rgba(93, 155, 255, 0.22);
+            background: linear-gradient(140deg, rgba(44, 77, 122, 0.95), rgba(24, 36, 65, 0.98));
+        }
+
+        .panel__actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .panel__actions--stacked {
+            margin-top: 4px;
+        }
+
+        .action-button {
+            border: none;
+            border-radius: 12px;
+            padding: 14px 20px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .action-button:hover,
+        .action-button:focus-visible {
+            transform: translateY(-1px);
+            outline: none;
+        }
+
+        .action-button--primary {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 92%);
+            box-shadow: 0 18px 36px rgba(93, 155, 255, 0.32);
+        }
+
+        .action-button--primary:hover,
+        .action-button--primary:focus-visible {
+            background: linear-gradient(135deg, #6aa7ff 0%, #3478ff 100%);
+            box-shadow: 0 22px 42px rgba(93, 155, 255, 0.38);
+        }
+
+        .action-button--secondary {
+            background: linear-gradient(135deg, rgba(80, 210, 138, 0.92) 0%, rgba(57, 171, 107, 0.95) 92%);
+            box-shadow: 0 18px 32px rgba(80, 210, 138, 0.28);
+            color: rgba(8, 23, 16, 0.95);
+        }
+
+        .action-button--secondary:hover,
+        .action-button--secondary:focus-visible {
+            background: linear-gradient(135deg, rgba(91, 226, 152, 0.95) 0%, rgba(57, 171, 107, 0.98) 100%);
+        }
+
+        .action-button--danger {
+            background: linear-gradient(135deg, rgba(255, 107, 129, 0.95) 0%, rgba(214, 64, 91, 0.98) 92%);
+            box-shadow: 0 18px 32px rgba(255, 107, 129, 0.25);
+        }
+
+        .action-button--danger:hover,
+        .action-button--danger:focus-visible {
+            background: linear-gradient(135deg, rgba(255, 124, 145, 0.98) 0%, rgba(214, 64, 91, 1) 92%);
+        }
+
+        .text-button {
+            border: none;
+            background: none;
+            color: var(--text-secondary);
+            padding: 0;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: underline;
+            text-decoration-color: transparent;
+            transition: color 0.18s ease, text-decoration-color 0.18s ease;
+            align-self: flex-start;
+        }
+
+        .text-button:hover,
+        .text-button:focus-visible {
+            color: var(--accent);
+            text-decoration-color: rgba(93, 155, 255, 0.8);
+            outline: none;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+        }
+
+        .info-card {
+            background: rgba(16, 22, 34, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .info-card__label {
+            font-size: 0.72rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: rgba(158, 173, 211, 0.6);
+        }
+
+        .info-card__value {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .history-card {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .history-card__title {
+            margin: 0;
+            font-size: 0.82rem;
+            letter-spacing: 0.24em;
+            color: rgba(158, 173, 211, 0.7);
+            text-transform: uppercase;
+        }
+
+        #move-history {
+            max-height: 220px;
+            overflow-y: auto;
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(9, 13, 21, 0.65);
+        }
+
+        .move-entry {
+            padding: 4px 0;
+            font-size: 0.82rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .move-entry:last-child {
+            border-bottom: none;
+        }
+
+        .board-area {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            background: radial-gradient(120% 120% at 50% 50%, rgba(22, 31, 48, 0.85) 0%, rgba(10, 14, 24, 0.95) 55%, rgba(7, 9, 16, 0.98) 100%);
+            position: relative;
+            border-radius: var(--radius-large);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: var(--shadow-elevated);
             overflow: hidden;
         }
-        
-        #game-container {
-            width: 100vw;
-            height: 100vh;
+
+        .board-toolbar {
             display: flex;
-            justify-content: center;
             align-items: center;
+            justify-content: space-between;
+            padding: clamp(12px, 3vw, 20px) clamp(16px, 4vw, 28px);
+            gap: 14px;
         }
-        
+
+        .toolbar-title {
+            margin: 0;
+            font-size: clamp(1.2rem, 2vw, 1.6rem);
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            color: var(--text-primary);
+        }
+
+        .toolbar-button {
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.05);
+            color: inherit;
+            border-radius: 999px;
+            padding: 10px 18px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        .toolbar-button:hover,
+        .toolbar-button:focus-visible {
+            background: rgba(93, 155, 255, 0.2);
+            border-color: rgba(93, 155, 255, 0.45);
+            box-shadow: 0 18px 36px rgba(93, 155, 255, 0.22);
+            outline: none;
+        }
+
+        .toolbar-button .icon {
+            font-size: 1.05rem;
+            line-height: 1;
+        }
+
+        .canvas-wrapper {
+            flex: 1 1 auto;
+            padding: clamp(12px, 4vw, 32px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .canvas-frame {
+            flex: 1 1 auto;
+            max-width: min(1200px, 100%);
+            border-radius: clamp(16px, 3vw, 28px);
+            background: rgba(6, 9, 16, 0.92);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 24px 56px rgba(5, 7, 12, 0.55);
+        }
+
+        body.is-fullscreen .canvas-wrapper {
+            padding: min(18px, 3vh);
+        }
+
+        body.is-fullscreen .canvas-frame {
+            border-radius: 0;
+            box-shadow: none;
+            border: none;
+        }
+
         canvas {
-            border: 1px solid #333;
-            background: #2a2a2a;
+            width: 100%;
+            height: 100%;
+            display: block;
+            border: none;
+            outline: none;
+            background: transparent;
+            flex: 1 1 auto;
         }
-        
+
+        canvas:focus-visible {
+            outline: 2px solid rgba(93, 155, 255, 0.7);
+            outline-offset: 6px;
+        }
+
+        body.is-fullscreen .board-area {
+            justify-content: center;
+        }
+
+        body.is-fullscreen .board-toolbar {
+            position: absolute;
+            top: min(20px, 4vh);
+            left: 0;
+            right: 0;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        body.is-fullscreen .board-toolbar > * {
+            pointer-events: auto;
+        }
+
+        body.is-fullscreen .canvas-wrapper {
+            padding: min(18px, 3vh) min(18px, 3vw);
+        }
+
         #loading {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 24px;
+            inset: 0;
         }
-        
-        #menu {
+
+        #loading::after {
+            content: none !important;
+        }
+
+        .loading-screen {
             position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 20px;
-            border-radius: 10px;
-            z-index: 100;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(9, 12, 20, 0.92);
+            backdrop-filter: blur(22px);
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+            z-index: 12;
+            padding: clamp(20px, 4vw, 32px);
         }
-        
-        .variant-button {
-            display: block;
-            width: 200px;
-            padding: 10px;
-            margin: 5px 0;
-            background: #444;
-            color: white;
-            border: none;
-            border-radius: 5px;
+
+        .loading-screen.is-hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .start-card {
+            width: min(420px, 90vw);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: linear-gradient(160deg, rgba(27, 35, 54, 0.92), rgba(13, 17, 27, 0.94));
+            box-shadow: 0 34px 72px rgba(6, 9, 16, 0.55);
+            padding: clamp(24px, 5vw, 36px);
+        }
+
+        .start-card__header {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .start-card__title {
+            margin: 0;
+            font-size: clamp(1.4rem, 3vw, 1.8rem);
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+
+        .start-card__subtitle {
+            margin: 0;
+            font-size: 0.92rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        .start-form {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .start-form label {
+            font-size: 0.8rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: rgba(160, 175, 214, 0.75);
+        }
+
+        .start-form select,
+        .start-form .mode-options {
+            margin-top: 8px;
+        }
+
+        .start-form select {
+            width: 100%;
+            background: rgba(12, 18, 30, 0.9);
+            color: var(--text-primary);
+            border: 1px solid rgba(93, 155, 255, 0.35);
+            border-radius: 12px;
+            padding: 12px 14px;
+            font-size: 0.95rem;
+            appearance: none;
+        }
+
+        .start-form select:disabled {
+            opacity: 0.5;
+        }
+
+        .mode-options {
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        }
+
+        .mode-option {
+            position: relative;
+            padding: 14px 16px;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            background: rgba(18, 25, 39, 0.9);
             cursor: pointer;
+            transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
         }
-        
-        .variant-button:hover {
-            background: #555;
+
+        .mode-option:hover {
+            border-color: rgba(93, 155, 255, 0.7);
+            box-shadow: 0 20px 36px rgba(93, 155, 255, 0.18);
+            transform: translateY(-1px);
         }
-        
-        .variant-button.selected {
-            background: #007acc;
-        }
-        
-        #game-info {
+
+        .mode-option input {
             position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 20px;
-            border-radius: 10px;
-            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
         }
-        
-        #move-history {
-            max-height: 300px;
-            overflow-y: auto;
-            margin-top: 10px;
+
+        .mode-option__title {
+            font-weight: 600;
+            margin-bottom: 4px;
         }
-        
-        .move-entry {
-            padding: 2px 0;
-            font-size: 12px;
+
+        .mode-option__meta {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .mode-option--selected {
+            border-color: rgba(93, 155, 255, 0.95);
+            box-shadow: 0 24px 48px rgba(93, 155, 255, 0.22);
+            background: linear-gradient(150deg, rgba(43, 70, 110, 0.95), rgba(22, 34, 62, 0.98));
+        }
+
+        .mode-option--disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        .mode-option--disabled:hover {
+            border-color: rgba(255, 255, 255, 0.1);
+            box-shadow: none;
+            transform: none;
+        }
+
+        .start-button {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            border: none;
+            border-radius: 14px;
+            padding: 14px 18px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            color: white;
+            background: linear-gradient(140deg, var(--accent) 0%, var(--accent-strong) 92%);
+            box-shadow: 0 22px 44px rgba(93, 155, 255, 0.28);
+            transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+        }
+
+        .start-button:hover,
+        .start-button:focus-visible {
+            transform: translateY(-1px);
+            box-shadow: 0 26px 50px rgba(93, 155, 255, 0.36);
+        }
+
+        .start-button:disabled {
+            filter: grayscale(0.4);
+            cursor: not-allowed;
+            box-shadow: none;
+            opacity: 0.6;
+        }
+
+        .start-progress {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .loading-screen[data-state="starting"] .start-card {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .loading-screen[data-state="starting"] .start-progress {
+            display: flex;
+        }
+
+        .is-hidden {
+            display: none !important;
+        }
+
+        .loading-spinner {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 3px solid rgba(255, 255, 255, 0.12);
+            border-top-color: var(--accent);
+            animation: spin 0.85s linear infinite;
+        }
+
+        .start-progress .loading-spinner {
+            width: 24px;
+            height: 24px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 1200px) {
+            .app-shell {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                flex: none;
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            }
+
+            body {
+                padding: clamp(12px, 5vw, 24px);
+                overflow: auto;
+            }
+        }
+
+        @media (max-width: 800px) {
+            .board-toolbar {
+                justify-content: center;
+            }
+
+            .toolbar-button .label {
+                display: none;
+            }
+
+            .variant-button {
+                padding: 12px 14px;
+            }
+
+            #move-history {
+                max-height: 180px;
+            }
+
+            .canvas-wrapper {
+                padding: clamp(12px, 5vw, 24px);
+            }
+        }
+
+        @media (max-width: 540px) {
+            .sidebar {
+                padding: clamp(18px, 6vw, 24px);
+            }
+
+            .panel {
+                gap: 16px;
+            }
+
+            .board-toolbar {
+                padding: 16px;
+            }
+
+            .canvas-wrapper {
+                padding: 12px;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(10, 12, 20, 0.2);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(93, 155, 255, 0.35);
+            border-radius: 999px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(93, 155, 255, 0.5);
         }
     </style>
 </head>
 <body>
-    <div id="game-container">
-        <div id="loading">Loading Hexagonal Chess...</div>
-        <canvas id="game-canvas"></canvas>
-        
-        <div id="menu" style="display: none;">
-            <h3>Select Variant</h3>
-            <button class="variant-button selected" data-variant="glinski">Gliński's Chess</button>
-            <button class="variant-button" data-variant="mccooey">McCooey's Chess</button>
-            <button class="variant-button" data-variant="mini">Mini Hexchess</button>
-            <button class="variant-button" data-variant="glinski-capablanca">Gliński-Capablanca</button>
-            <button class="variant-button" data-variant="mccooey-capablanca">McCooey-Capablanca</button>
-            <button class="variant-button" data-variant="shafran">Shafran's Chess</button>
-            <button class="variant-button" data-variant="brusky">Brusky's Chess</button>
-            <button class="variant-button" data-variant="de-vasa">De Vasa's Chess</button>
-            <br><br>
-            <button id="start-game" style="width: 100%; padding: 15px; background: #007acc; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer;">Start Game</button>
-            <button id="multiplayer" style="width: 100%; padding: 15px; background: #28a745; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin-top: 10px;">Multiplayer</button>
+    <div class="background-glow" aria-hidden="true"></div>
+    <main id="game-container" class="board-area">
+        <header class="board-toolbar">
+            <h1 class="toolbar-title">Hexagonal Chess</h1>
+            <button id="fullscreen-toggle" class="toolbar-button" type="button" aria-pressed="false" title="Toggle fullscreen board view">
+                <span class="icon" aria-hidden="true">&#x2922;</span>
+                <span class="label">Enter Fullscreen</span>
+            </button>
+        </header>
+        <div class="canvas-wrapper">
+            <div class="canvas-frame">
+                <canvas id="game-canvas" tabindex="0"></canvas>
+                <div id="loading" class="loading-screen" data-state="loading">
+                    <div class="start-card" role="dialog" aria-labelledby="start-card-title">
+                        <div class="start-card__header">
+                            <h2 class="start-card__title" id="start-card-title">Start a Match</h2>
+                            <p class="start-card__subtitle">Pick a variant and choose how you want to play.</p>
+                        </div>
+                        <form id="start-form" class="start-form">
+                            <div>
+                                <label for="variant-select">Variant</label>
+                                <select id="variant-select" name="variant">
+                                    <option value="glinski">Gliński's Chess</option>
+                                    <option value="mccooey" disabled>McCooey's Chess (coming soon)</option>
+                                    <option value="mini" disabled>Mini Hexchess (coming soon)</option>
+                                    <option value="glinski-capablanca" disabled>Gliński-Capablanca (coming soon)</option>
+                                    <option value="mccooey-capablanca" disabled>McCooey-Capablanca (coming soon)</option>
+                                    <option value="shafran" disabled>Shafran's Chess (coming soon)</option>
+                                    <option value="brusky" disabled>Brusky's Chess (coming soon)</option>
+                                    <option value="de-vasa" disabled>De Vasa's Chess (coming soon)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label>Mode</label>
+                                <div class="mode-options" role="radiogroup" aria-label="Choose play mode">
+                                    <label class="mode-option mode-option--selected" data-mode="local" for="mode-local">
+                                        <input type="radio" id="mode-local" name="mode" value="local" checked>
+                                        <span class="mode-option__title">Local Play</span>
+                                        <span class="mode-option__meta">Two players sharing this device.</span>
+                                    </label>
+                                    <label class="mode-option mode-option--disabled" data-mode="ai" for="mode-ai" aria-disabled="true">
+                                        <input type="radio" id="mode-ai" name="mode" value="ai" disabled>
+                                        <span class="mode-option__title">Player vs AI</span>
+                                        <span class="mode-option__meta">Single player against a computer opponent (coming soon).</span>
+                                    </label>
+                                    <label class="mode-option mode-option--disabled" data-mode="online" for="mode-online" aria-disabled="true">
+                                        <input type="radio" id="mode-online" name="mode" value="online" disabled>
+                                        <span class="mode-option__title">Online Multiplayer</span>
+                                        <span class="mode-option__meta">Host a match over the network (coming soon).</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <button type="submit" id="start-button" class="start-button" disabled>Start Match</button>
+                            <div class="start-progress" id="start-progress" aria-live="polite" aria-atomic="true">
+                                <div class="loading-spinner" aria-hidden="true"></div>
+                                <span>Preparing board…</span>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
         </div>
-        
-        <div id="game-info" style="display: none;">
-            <h3>Game Info</h3>
-            <div id="current-player">White to move</div>
-            <div id="game-status">Playing</div>
-            <h4>Move History</h4>
-            <div id="move-history"></div>
-            <button id="undo-move" style="width: 100%; padding: 10px; background: #dc3545; color: white; border: none; border-radius: 5px; margin-top: 10px;">Undo Move</button>
-        </div>
-    </div>
+    </main>
 
     <link data-trunk rel="rust" data-wasm-opt="z"/>
+
+    <script>
+        (() => {
+            let wasmModule = null;
+            let resizeTimeout;
+            let selectedVariant = 'glinski';
+            let selectedMode = 'local';
+            let moduleReady = false;
+
+            const loadingOverlay = document.getElementById('loading');
+            const startForm = document.getElementById('start-form');
+            const variantSelect = document.getElementById('variant-select');
+            const modeOptions = Array.from(document.querySelectorAll('.mode-option'));
+            const startButton = document.getElementById('start-button');
+            const fullscreenToggle = document.getElementById('fullscreen-toggle');
+
+            const queueResize = () => {
+                if (resizeTimeout) {
+                    window.clearTimeout(resizeTimeout);
+                }
+                resizeTimeout = window.setTimeout(() => {
+                    window.dispatchEvent(new Event('resize'));
+                }, 80);
+            };
+
+            const showOverlay = () => {
+                if (!loadingOverlay) {
+                    return;
+                }
+                loadingOverlay.dataset.state = moduleReady ? 'ready' : 'loading';
+                loadingOverlay.classList.remove('is-hidden');
+                updateStartButton();
+            };
+
+            const hideOverlay = () => {
+                if (!loadingOverlay) {
+                    return;
+                }
+                loadingOverlay.dataset.state = 'hidden';
+                loadingOverlay.classList.add('is-hidden');
+            };
+
+            const updateModeSelection = (mode) => {
+                selectedMode = mode;
+                modeOptions.forEach((option) => {
+                    const input = option.querySelector('input');
+                    if (!input) {
+                        return;
+                    }
+                    const isSelected = input.value === mode;
+                    option.classList.toggle('mode-option--selected', isSelected);
+                    if (isSelected) {
+                        input.checked = true;
+                    }
+                });
+                updateStartButton();
+            };
+
+            const updateStartButton = () => {
+                if (!startButton) {
+                    return;
+                }
+                const label = selectedMode === 'online'
+                    ? 'Host Online Match'
+                    : selectedMode === 'ai'
+                        ? 'Play vs AI'
+                        : 'Start Local Match';
+                startButton.textContent = label;
+                const disabled = !moduleReady || selectedMode === 'ai' || selectedMode === 'online';
+                if (disabled) {
+                    startButton.setAttribute('disabled', 'true');
+                } else {
+                    startButton.removeAttribute('disabled');
+                }
+            };
+
+            const updateFullscreenState = () => {
+                const isFullscreen = Boolean(document.fullscreenElement);
+                document.body.classList.toggle('is-fullscreen', isFullscreen);
+
+                if (fullscreenToggle) {
+                    fullscreenToggle.setAttribute('aria-pressed', String(isFullscreen));
+                    const label = fullscreenToggle.querySelector('.label');
+                    if (label) {
+                        label.textContent = isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen';
+                    } else {
+                        fullscreenToggle.textContent = isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen';
+                    }
+                }
+
+                queueResize();
+            };
+
+            const startGame = (variant, multiplayer) => {
+                if (loadingOverlay) {
+                    loadingOverlay.dataset.state = 'starting';
+                }
+                startButton?.setAttribute('disabled', 'true');
+
+                if (wasmModule && typeof wasmModule.start_game === 'function') {
+                    wasmModule.start_game(variant, multiplayer);
+                } else {
+                    console.warn('WASM module not ready yet.');
+                }
+
+                queueResize();
+                window.setTimeout(() => hideOverlay(), 180);
+            };
+
+            const setupUiListeners = () => {
+                variantSelect?.addEventListener('change', (event) => {
+                    selectedVariant = event.target.value;
+                });
+
+                modeOptions.forEach((option) => {
+                    const input = option.querySelector('input');
+                    if (!input || input.disabled) {
+                        return;
+                    }
+                    option.addEventListener('click', () => {
+                        updateModeSelection(input.value);
+                    });
+                });
+
+                startForm?.addEventListener('submit', (event) => {
+                    event.preventDefault();
+                    if (!moduleReady) {
+                        return;
+                    }
+
+                    const formData = new FormData(startForm);
+                    const variant = (formData.get('variant') ?? selectedVariant).toString();
+                    const mode = (formData.get('mode') ?? selectedMode).toString();
+
+                    updateModeSelection(mode);
+                    selectedVariant = variant;
+
+                    const multiplayer = mode === 'online';
+                    startGame(variant, multiplayer);
+                });
+
+                if (fullscreenToggle) {
+                    fullscreenToggle.addEventListener('click', () => {
+                        if (!document.fullscreenElement) {
+                            document.documentElement.requestFullscreen?.().catch(() => {});
+                        } else {
+                            document.exitFullscreen?.();
+                        }
+                    });
+                }
+
+                document.addEventListener('fullscreenchange', updateFullscreenState);
+                document.addEventListener('keydown', (event) => {
+                    if (event.key === 'n' || event.key === 'N') {
+                        showOverlay();
+                        return;
+                    }
+
+                    if (!wasmModule) {
+                        return;
+                    }
+
+                    if ((event.key === 'u' || event.key === 'U') && typeof wasmModule.undo_move === 'function') {
+                        wasmModule.undo_move();
+                    }
+                });
+
+                updateModeSelection(selectedMode);
+                updateFullscreenState();
+            };
+
+            const onModuleReady = () => {
+                moduleReady = true;
+                if (loadingOverlay && loadingOverlay.dataset.state === 'loading') {
+                    loadingOverlay.dataset.state = 'ready';
+                }
+                updateStartButton();
+            };
+
+            setupUiListeners();
+
+            window.addEventListener('TrunkApplicationStarted', (event) => {
+                wasmModule = event.detail?.wasm ?? null;
+
+                if (!wasmModule) {
+                    console.error('TrunkApplicationStarted event did not provide a WASM module.');
+                    if (loadingOverlay) {
+                        loadingOverlay.dataset.state = 'error';
+                    }
+                    return;
+                }
+
+                onModuleReady();
+                queueResize();
+            });
+
+            window.addEventListener('TrunkLoaderReady', onModuleReady);
+            window.addEventListener('hex-chess-ready', () => {
+                moduleReady = true;
+                updateStartButton();
+            });
+        })();
+    </script>
 </body>
 </html>
-
