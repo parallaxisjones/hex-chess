@@ -34,7 +34,7 @@
 
         body {
             margin: 0;
-            padding: clamp(12px, 3vw, 24px);
+            padding: clamp(4px, 1.5vw, 12px);
             min-height: 100vh;
             background: radial-gradient(125% 140% at 50% 20%, #1d2844 0%, #111623 38%, #070910 65%, #04050a 100%);
             color: var(--text-primary);
@@ -351,6 +351,8 @@
             border: 1px solid rgba(255, 255, 255, 0.05);
             box-shadow: var(--shadow-elevated);
             overflow: hidden;
+            width: 100%;
+            max-width: 100%;
         }
 
         .board-toolbar {
@@ -398,28 +400,28 @@
 
         .canvas-wrapper {
             flex: 1 1 auto;
-            padding: clamp(12px, 4vw, 32px);
+            padding: clamp(6px, 2vw, 14px);
             display: flex;
-            align-items: center;
+            align-items: stretch;
             justify-content: center;
         }
 
         .canvas-frame {
             flex: 1 1 auto;
-            max-width: min(1200px, 100%);
-            border-radius: clamp(16px, 3vw, 28px);
+            max-width: 100%;
+            border-radius: clamp(18px, 3.5vw, 30px);
             background: rgba(6, 9, 16, 0.92);
             border: 1px solid rgba(255, 255, 255, 0.04);
             position: relative;
             overflow: hidden;
             display: flex;
-            align-items: center;
+            align-items: stretch;
             justify-content: center;
-            box-shadow: 0 24px 56px rgba(5, 7, 12, 0.55);
+            box-shadow: 0 28px 60px rgba(5, 7, 12, 0.55);
         }
 
         body.is-fullscreen .canvas-wrapper {
-            padding: min(18px, 3vh);
+            padding: min(6px, 1.5vh) min(6px, 1.5vw);
         }
 
         body.is-fullscreen .canvas-frame {
@@ -436,6 +438,7 @@
             outline: none;
             background: transparent;
             flex: 1 1 auto;
+            object-fit: contain;
         }
 
         canvas:focus-visible {
@@ -445,6 +448,9 @@
 
         body.is-fullscreen .board-area {
             justify-content: center;
+            max-width: 100%;
+            border: none;
+            border-radius: 0;
         }
 
         body.is-fullscreen .board-toolbar {
@@ -458,10 +464,6 @@
 
         body.is-fullscreen .board-toolbar > * {
             pointer-events: auto;
-        }
-
-        body.is-fullscreen .canvas-wrapper {
-            padding: min(18px, 3vh) min(18px, 3vw);
         }
 
         #loading {
