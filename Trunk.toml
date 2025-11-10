@@ -1,7 +1,7 @@
 [build]
 target = "crates/game/index.html"
 dist = "dist"
-public_url = "/"
+public_url = "./"
 
 [serve]
 address = "127.0.0.1"
