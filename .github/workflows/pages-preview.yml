@@ -1,0 +1,34 @@
+name: Build Pages Preview
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      RUSTUP_TOOLCHAIN: stable
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: wasm32-unknown-unknown
+          profile: minimal
+          components: llvm-tools-preview
+
+      - name: Install trunk
+        run: |
+          cargo install trunk
+
+      - name: Build site
+        run: |
+          RUSTFLAGS="-C linker=rust-lld" trunk build --release

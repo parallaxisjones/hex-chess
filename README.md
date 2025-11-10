@@ -179,3 +179,20 @@ MIT License - see LICENSE file for details.
 - [Bevy](https://bevyengine.org) for the game engine
 - [WebRTC](https://webrtc.org) for p2p networking
 - [Nix](https://nixos.org) for reproducible builds
+
+### GitHub Pages
+
+The repo ships with two GitHub Actions workflows:
+
+- `.github/workflows/pages.yml` builds the WASM bundle with `trunk build --release`, uploading `dist/` and deploying via `actions/deploy-pages`. The workflow installs the wasm target plus `llvm-tools-preview` and runs with `RUSTFLAGS="-C linker=rust-lld"`, so no external linker is required.
+- `.github/workflows/pages-preview.yml` runs the same build on pull requests to catch regressions without deploying.
+
+To publish via GitHub Pages:
+
+1. Push the workflows to the `main` branch.
+2. In **Repository Settings → Pages**, choose **Source: GitHub Actions** (no branch selection required).
+3. Merge a commit into `main` or dispatch the `Deploy GitHub Pages` workflow. The deploy job outputs a `page_url` with the live site.
+
+> No additional secrets are required; the workflows use the default permissions granted to GitHub Actions.
+
+---
